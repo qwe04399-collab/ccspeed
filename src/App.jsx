@@ -84,9 +84,7 @@ export default function App() {
           startTimeRef.current = Date.now();
 
           timerRef.current = setInterval(() => {
-            setTime(
-              (Date.now() - startTimeRef.current) / 1000
-            );
+            setTime(Date.now() - startTimeRef.current);
           }, 100);
         }
 
@@ -118,7 +116,7 @@ export default function App() {
 
       <h2>狀態：{state}</h2>
 
-      <h1>{time.toFixed(2)} s</h1>
+      <h1>{formatTime(time)}</h1>
 
       <hr />
 
