@@ -4,12 +4,13 @@ export default function App() {
   const START = { lat: 22.842872, lng: 120.245578 };
   const END = { lat: 22.825590, lng: 120.272564 };
 
-  // 狀態機
   const [state, setState] = useState("IDLE");
   const [time, setTime] = useState(0);
 
   const [lat, setLat] = useState(0);
   const [lng, setLng] = useState(0);
+
+  const [speed, setSpeed] = useState(0);
 
   const [dStart, setDStart] = useState(0);
   const [dEnd, setDEnd] = useState(0);
@@ -22,7 +23,6 @@ export default function App() {
   const timerRef = useRef(null);
   const startTimeRef = useRef(0);
 
-  // 距離計算
   function getDistance(a, b) {
     const R = 6371000;
 
@@ -42,20 +42,18 @@ export default function App() {
     return arr.reduce((a, b) => a + b, 0) / arr.length;
   }
 
-  // ⏱ 時間格式化（分:秒.毫秒）
   function formatTime(ms) {
-    const totalSeconds = ms / 1000;
-
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = Math.floor(totalSeconds % 60);
-    const centiseconds = Math.floor((ms % 1000) / 10);
+    const total = ms / 1000;
+    const m = Math.floor(total / 60);
+    const s = Math.floor(total % 60);
+    const cs = Math.floor((ms % 1000) / 10);
 
     return (
-      String(minutes).padStart(2, "0") +
+      String(m).padStart(2, "0") +
       ":" +
-      String(seconds).padStart(2, "0") +
+      String(s).padStart(2, "0") +
       "." +
-      String(centiseconds).padStart(2, "0")
+      String(cs).padStart(2, "0")
     );
   }
 
@@ -69,15 +67,17 @@ export default function App() {
         const p = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
+          speed: pos.coords.speed || 0,
         };
 
         setLat(p.lat);
         setLng(p.lng);
+        setSpeed(p.speed);
 
         const ds = getDistance(p, START);
         const de = getDistance(p, END);
 
-        // GPS 平滑（3點平均）
+        // 平滑
         startBufferRef.current.push(ds);
         if (startBufferRef.current.length > 3) {
           startBufferRef.current.shift();
@@ -94,8 +94,12 @@ export default function App() {
         setDStart(smoothStart);
         setDEnd(smoothEnd);
 
-        // 🟢 START
-        if (state === "RUNNING" && smoothStart < 100) {
+        // 🟢 START（車輛移動才允許）
+        if (
+          state === "RUNNING" &&
+          smoothStart < 100 &&
+          p.speed > 0.5
+        ) {
           setState("TIMING");
 
           startTimeRef.current = Date.now();
@@ -108,7 +112,6 @@ export default function App() {
         // 🔴 STOP
         if (state === "TIMING" && smoothEnd < 100) {
           setState("FINISHED");
-
           clearInterval(timerRef.current);
         }
       },
@@ -125,7 +128,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>CCSPEED v3</h1>
+      <h1>CCSPEED v4</h1>
 
       <button onClick={startGPS}>
         啟動GPS
@@ -133,7 +136,6 @@ export default function App() {
 
       <h2>狀態：{state}</h2>
 
-      {/* ⏱ 時間顯示 */}
       <h1 style={{ fontSize: 40 }}>
         {formatTime(time)}
       </h1>
@@ -141,7 +143,11 @@ export default function App() {
       <hr />
 
       <p>
-        📍 目前位置：{lat.toFixed(6)}, {lng.toFixed(6)}
+        📍 {lat.toFixed(6)}, {lng.toFixed(6)}
+      </p>
+
+      <p>
+        🚗 速度：{(speed * 3.6).toFixed(1)} km/h
       </p>
 
       <p>
