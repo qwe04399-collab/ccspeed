@@ -15,13 +15,21 @@ export default function App() {
   const [dStart, setDStart] = useState(0);
   const [dEnd, setDEnd] = useState(0);
 
-  const watchIdRef = useRef(null);
-
-  const startBufferRef = useRef([]);
-  const endBufferRef = useRef([]);
+  const watchRef = useRef(null);
 
   const timerRef = useRef(null);
   const startTimeRef = useRef(0);
+
+  // ===== EMA 濾波係數（越小越穩）=====
+  const alpha = 0.2;
+
+  const emaRef = useRef({
+    lat: null,
+    lng: null,
+    speed: 0,
+    dStart: 0,
+    dEnd: 0,
+  });
 
   function getDistance(a, b) {
     const R = 6371000;
@@ -38,14 +46,16 @@ export default function App() {
     return 2 * R * Math.asin(Math.sqrt(x));
   }
 
-  function avg(arr) {
-    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  function ema(prev, current) {
+    return prev === null
+      ? current
+      : prev * (1 - alpha) + current * alpha;
   }
 
   function formatTime(ms) {
-    const total = ms / 1000;
-    const m = Math.floor(total / 60);
-    const s = Math.floor(total % 60);
+    const t = ms / 1000;
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
     const cs = Math.floor((ms % 1000) / 10);
 
     return (
@@ -58,47 +68,80 @@ export default function App() {
   }
 
   const startGPS = () => {
-    if (watchIdRef.current !== null) return;
+    if (watchRef.current) return;
 
     setState("RUNNING");
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
+    watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
+        let rawLat = pos.coords.latitude;
+        let rawLng = pos.coords.longitude;
+        let rawSpeed = pos.coords.speed || 0;
+
+        // =========================
+        // 🟢 1. GPS EMA 濾波
+        // =========================
+        emaRef.current.lat = ema(emaRef.current.lat, rawLat);
+        emaRef.current.lng = ema(emaRef.current.lng, rawLng);
+
+        const smoothLat = emaRef.current.lat;
+        const smoothLng = emaRef.current.lng;
+
+        // =========================
+        // 🟢 2. 異常值過濾（跳點防護）
+        // =========================
+        const distJump =
+          getDistance(
+            { lat: rawLat, lng: rawLng },
+            { lat: smoothLat, lng: smoothLng }
+          );
+
+        if (distJump > 50) {
+          // 忽略這筆（GPS炸點）
+          return;
+        }
+
+        // =========================
+        // 🟢 3. speed EMA
+        // =========================
+        emaRef.current.speed = ema(
+          emaRef.current.speed,
+          rawSpeed
+        );
+
+        const smoothSpeed = emaRef.current.speed;
+
         const p = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          speed: pos.coords.speed || 0,
+          lat: smoothLat,
+          lng: smoothLng,
         };
 
-        setLat(p.lat);
-        setLng(p.lng);
-        setSpeed(p.speed);
+        setLat(smoothLat);
+        setLng(smoothLng);
+        setSpeed(smoothSpeed);
 
         const ds = getDistance(p, START);
         const de = getDistance(p, END);
 
-        // 平滑
-        startBufferRef.current.push(ds);
-        if (startBufferRef.current.length > 3) {
-          startBufferRef.current.shift();
-        }
+        // =========================
+        // 🟢 4. 距離 EMA
+        // =========================
+        emaRef.current.dStart = ema(emaRef.current.dStart, ds);
+        emaRef.current.dEnd = ema(emaRef.current.dEnd, de);
 
-        endBufferRef.current.push(de);
-        if (endBufferRef.current.length > 3) {
-          endBufferRef.current.shift();
-        }
+        const sStart = emaRef.current.dStart;
+        const sEnd = emaRef.current.dEnd;
 
-        const smoothStart = avg(startBufferRef.current);
-        const smoothEnd = avg(endBufferRef.current);
+        setDStart(sStart);
+        setDEnd(sEnd);
 
-        setDStart(smoothStart);
-        setDEnd(smoothEnd);
-
-        // 🟢 START（車輛移動才允許）
+        // =========================
+        // 🟢 START（穩定 + 車速）
+        // =========================
         if (
           state === "RUNNING" &&
-          smoothStart < 100 &&
-          p.speed > 0.5
+          sStart < 100 &&
+          smoothSpeed > 0.5
         ) {
           setState("TIMING");
 
@@ -109,15 +152,15 @@ export default function App() {
           }, 100);
         }
 
-        // 🔴 STOP
-        if (state === "TIMING" && smoothEnd < 100) {
+        // =========================
+        // 🟢 STOP
+        // =========================
+        if (state === "TIMING" && sEnd < 100) {
           setState("FINISHED");
           clearInterval(timerRef.current);
         }
       },
-      (err) => {
-        console.log(err);
-      },
+      (err) => console.log(err),
       {
         enableHighAccuracy: true,
         maximumAge: 0,
@@ -128,7 +171,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>CCSPEED v4</h1>
+      <h1>CCSPEED v5（高精度濾波）</h1>
 
       <button onClick={startGPS}>
         啟動GPS
