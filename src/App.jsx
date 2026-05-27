@@ -1,113 +1,104 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 export default function App() {
   const START = { lat: 22.842872, lng: 120.245578 };
   const END = { lat: 22.825590, lng: 120.272564 };
 
-  const [status, setStatus] = useState("等待GPS");
+  // 狀態機
+  const [state, setState] = useState("IDLE"); 
   const [time, setTime] = useState(0);
 
   const [lat, setLat] = useState(0);
   const [lng, setLng] = useState(0);
 
-  const [distanceStart, setDistanceStart] = useState(0);
-  const [distanceEnd, setDistanceEnd] = useState(0);
+  const [dStart, setDStart] = useState(0);
+  const [dEnd, setDEnd] = useState(0);
 
-  const [running, setRunning] = useState(false);
+  const watchIdRef = useRef(null);
 
-  const startedRef = useRef(false);
-  const stoppedRef = useRef(false);
+  const startBufferRef = useRef([]);
+  const endBufferRef = useRef([]);
 
-  const startTimerRef = useRef(null);
-  const intervalRef = useRef(null);
+  const timerRef = useRef(null);
+  const startTimeRef = useRef(0);
 
-  const startStableCountRef = useRef(0);
-  const endStableCountRef = useRef(0);
-
-  // 距離計算
-  function getDistance(lat1, lng1, lat2, lng2) {
+  // 距離
+  function getDistance(a, b) {
     const R = 6371000;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
 
-    const a =
+    const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+    const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+
+    const x =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
+      Math.cos((a.lat * Math.PI) / 180) *
+        Math.cos((b.lat * Math.PI) / 180) *
         Math.sin(dLng / 2) ** 2;
 
-    return 2 * R * Math.asin(Math.sqrt(a));
+    return 2 * R * Math.asin(Math.sqrt(x));
+  }
+
+  function avg(arr) {
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
   }
 
   const startGPS = () => {
-    setStatus("GPS監測中");
+    if (watchIdRef.current !== null) return;
 
-    navigator.geolocation.watchPosition(
+    setState("RUNNING");
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        const cLat = pos.coords.latitude;
-        const cLng = pos.coords.longitude;
+        const p = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
 
-        setLat(cLat);
-        setLng(cLng);
+        setLat(p.lat);
+        setLng(p.lng);
 
-        const dStart = getDistance(cLat, cLng, START.lat, START.lng);
-        const dEnd = getDistance(cLat, cLng, END.lat, END.lng);
+        const ds = getDistance(p, START);
+        const de = getDistance(p, END);
 
-        setDistanceStart(dStart);
-        setDistanceEnd(dEnd);
-
-        // =========================
-        // 🟢 START 防抖（3次穩定才觸發）
-        // =========================
-        if (dStart < 100) {
-          startStableCountRef.current += 1;
-        } else {
-          startStableCountRef.current = 0;
+        // ====== 🔵 GPS 平滑（3點平均）======
+        startBufferRef.current.push(ds);
+        if (startBufferRef.current.length > 3) {
+          startBufferRef.current.shift();
         }
 
-        if (
-          !startedRef.current &&
-          startStableCountRef.current >= 3
-        ) {
-          startedRef.current = true;
+        endBufferRef.current.push(de);
+        if (endBufferRef.current.length > 3) {
+          endBufferRef.current.shift();
+        }
 
-          setStatus("開始計時");
-          setRunning(true);
+        const smoothStart = avg(startBufferRef.current);
+        const smoothEnd = avg(endBufferRef.current);
 
-          startTimerRef.current = Date.now();
+        setDStart(smoothStart);
+        setDEnd(smoothEnd);
 
-          intervalRef.current = setInterval(() => {
+        // ================= START =================
+        if (state === "RUNNING" && smoothStart < 100) {
+          setState("TIMING");
+
+          startTimeRef.current = Date.now();
+
+          timerRef.current = setInterval(() => {
             setTime(
-              (Date.now() - startTimerRef.current) / 1000
+              (Date.now() - startTimeRef.current) / 1000
             );
           }, 100);
         }
 
-        // =========================
-        // 🔴 STOP 防抖（3次穩定才觸發）
-        // =========================
-        if (dEnd < 100) {
-          endStableCountRef.current += 1;
-        } else {
-          endStableCountRef.current = 0;
-        }
+        // ================= STOP =================
+        if (state === "TIMING" && smoothEnd < 100) {
+          setState("FINISHED");
 
-        if (
-          startedRef.current &&
-          !stoppedRef.current &&
-          endStableCountRef.current >= 3
-        ) {
-          stoppedRef.current = true;
-
-          setRunning(false);
-          setStatus("完成");
-
-          clearInterval(intervalRef.current);
+          clearInterval(timerRef.current);
         }
       },
       (err) => {
         console.log(err);
-        setStatus("GPS錯誤");
       },
       {
         enableHighAccuracy: true,
@@ -119,28 +110,28 @@ export default function App() {
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>CCSPEED v2</h1>
+      <h1>CCSPEED v3</h1>
 
       <button onClick={startGPS}>
-        開始GPS
+        啟動GPS
       </button>
 
-      <h2>{status}</h2>
+      <h2>狀態：{state}</h2>
 
       <h1>{time.toFixed(2)} s</h1>
 
       <hr />
 
       <p>
-        📍 目前位置：{lat.toFixed(6)}, {lng.toFixed(6)}
+        📍 {lat.toFixed(6)}, {lng.toFixed(6)}
       </p>
 
       <p>
-        距起點：{distanceStart.toFixed(0)} m
+        起點距離：{dStart.toFixed(0)} m
       </p>
 
       <p>
-        距終點：{distanceEnd.toFixed(0)} m
+        終點距離：{dEnd.toFixed(0)} m
       </p>
     </div>
   );
