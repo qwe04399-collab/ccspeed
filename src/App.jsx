@@ -14,6 +14,8 @@ export default function App() {
   };
 
   const [running, setRunning] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+
   const [time, setTime] = useState(0);
 
   const [distanceToStart, setDistanceToStart] = useState(0);
@@ -29,7 +31,7 @@ export default function App() {
 
   // 計算距離（公尺）
   function getDistance(lat1, lng1, lat2, lng2) {
-    const R = 6371e3;
+    const R = 6371000;
 
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
@@ -49,7 +51,6 @@ export default function App() {
     return R * c;
   }
 
-  // 開始GPS監測
   const startGPS = () => {
     setStatus("GPS監測中");
 
@@ -58,30 +59,18 @@ export default function App() {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
 
-        // 顯示目前GPS
         setCurrentLat(lat);
         setCurrentLng(lng);
 
-        // 計算距離
-        const dStart = getDistance(
-          lat,
-          lng,
-          START.lat,
-          START.lng
-        );
-
-        const dEnd = getDistance(
-          lat,
-          lng,
-          END.lat,
-          END.lng
-        );
+        const dStart = getDistance(lat, lng, START.lat, START.lng);
+        const dEnd = getDistance(lat, lng, END.lat, END.lng);
 
         setDistanceToStart(dStart);
         setDistanceToEnd(dEnd);
 
-        // 自動 START
-        if (!running && dStart < 100) {
+        // 🟢 START（只觸發一次）
+        if (!hasStarted && dStart < 100) {
+          setHasStarted(true);
           setRunning(true);
 
           startTimeRef.current = Date.now();
@@ -95,10 +84,9 @@ export default function App() {
           setStatus("計時開始");
         }
 
-        // 自動 STOP
+        // 🔴 STOP（只在 running 時觸發）
         if (running && dEnd < 100) {
           setRunning(false);
-
           clearInterval(timerRef.current);
 
           setStatus("抵達終點");
@@ -117,12 +105,7 @@ export default function App() {
   };
 
   return (
-    <div
-      style={{
-        padding: 20,
-        fontFamily: "Arial",
-      }}
-    >
+    <div style={{ padding: 20, fontFamily: "Arial" }}>
       <h1>CCSPEED</h1>
 
       <button onClick={startGPS}>
@@ -136,7 +119,6 @@ export default function App() {
       <hr />
 
       <h3>目前GPS座標</h3>
-
       <p>
         {currentLat}, {currentLng}
       </p>
@@ -144,13 +126,11 @@ export default function App() {
       <hr />
 
       <p>
-        距起點：
-        {distanceToStart.toFixed(1)} m
+        距起點：{distanceToStart.toFixed(0)} m
       </p>
 
       <p>
-        距終點：
-        {distanceToEnd.toFixed(1)} m
+        距終點：{distanceToEnd.toFixed(0)} m
       </p>
     </div>
   );
