@@ -5,7 +5,7 @@ export default function App() {
   const END = { lat: 22.825590, lng: 120.272564 };
 
   // 狀態機
-  const [state, setState] = useState("IDLE"); 
+  const [state, setState] = useState("IDLE");
   const [time, setTime] = useState(0);
 
   const [lat, setLat] = useState(0);
@@ -22,7 +22,7 @@ export default function App() {
   const timerRef = useRef(null);
   const startTimeRef = useRef(0);
 
-  // 距離
+  // 距離計算
   function getDistance(a, b) {
     const R = 6371000;
 
@@ -40,6 +40,23 @@ export default function App() {
 
   function avg(arr) {
     return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
+
+  // ⏱ 時間格式化（分:秒.毫秒）
+  function formatTime(ms) {
+    const totalSeconds = ms / 1000;
+
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    const centiseconds = Math.floor((ms % 1000) / 10);
+
+    return (
+      String(minutes).padStart(2, "0") +
+      ":" +
+      String(seconds).padStart(2, "0") +
+      "." +
+      String(centiseconds).padStart(2, "0")
+    );
   }
 
   const startGPS = () => {
@@ -60,7 +77,7 @@ export default function App() {
         const ds = getDistance(p, START);
         const de = getDistance(p, END);
 
-        // ====== 🔵 GPS 平滑（3點平均）======
+        // GPS 平滑（3點平均）
         startBufferRef.current.push(ds);
         if (startBufferRef.current.length > 3) {
           startBufferRef.current.shift();
@@ -77,7 +94,7 @@ export default function App() {
         setDStart(smoothStart);
         setDEnd(smoothEnd);
 
-        // ================= START =================
+        // 🟢 START
         if (state === "RUNNING" && smoothStart < 100) {
           setState("TIMING");
 
@@ -88,7 +105,7 @@ export default function App() {
           }, 100);
         }
 
-        // ================= STOP =================
+        // 🔴 STOP
         if (state === "TIMING" && smoothEnd < 100) {
           setState("FINISHED");
 
@@ -116,12 +133,15 @@ export default function App() {
 
       <h2>狀態：{state}</h2>
 
-      <h1>{formatTime(time)}</h1>
+      {/* ⏱ 時間顯示 */}
+      <h1 style={{ fontSize: 40 }}>
+        {formatTime(time)}
+      </h1>
 
       <hr />
 
       <p>
-        📍 {lat.toFixed(6)}, {lng.toFixed(6)}
+        📍 目前位置：{lat.toFixed(6)}, {lng.toFixed(6)}
       </p>
 
       <p>
