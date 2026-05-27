@@ -1,54 +1,42 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function App() {
-  // 起點（宿舍）
-  const START = {
-    lat: 22.842872,
-    lng: 120.245578,
-  };
-
-  // 終點（公司）
-  const END = {
-    lat: 22.825590,
-    lng: 120.272564,
-  };
-
-  const [running, setRunning] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
-
-  const [time, setTime] = useState(0);
-
-  const [distanceToStart, setDistanceToStart] = useState(0);
-  const [distanceToEnd, setDistanceToEnd] = useState(0);
-
-  const [currentLat, setCurrentLat] = useState(0);
-  const [currentLng, setCurrentLng] = useState(0);
+  const START = { lat: 22.842872, lng: 120.245578 };
+  const END = { lat: 22.825590, lng: 120.272564 };
 
   const [status, setStatus] = useState("等待GPS");
+  const [time, setTime] = useState(0);
 
-  const timerRef = useRef(null);
-  const startTimeRef = useRef(null);
+  const [lat, setLat] = useState(0);
+  const [lng, setLng] = useState(0);
 
-  // 計算距離（公尺）
+  const [distanceStart, setDistanceStart] = useState(0);
+  const [distanceEnd, setDistanceEnd] = useState(0);
+
+  const [running, setRunning] = useState(false);
+
+  const startedRef = useRef(false);
+  const stoppedRef = useRef(false);
+
+  const startTimerRef = useRef(null);
+  const intervalRef = useRef(null);
+
+  const startStableCountRef = useRef(0);
+  const endStableCountRef = useRef(0);
+
+  // 距離計算
   function getDistance(lat1, lng1, lat2, lng2) {
     const R = 6371000;
-
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
 
     const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) *
-        Math.cos(φ2) *
-        Math.sin(Δλ / 2) *
-        Math.sin(Δλ / 2);
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) ** 2;
 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
+    return 2 * R * Math.asin(Math.sqrt(a));
   }
 
   const startGPS = () => {
@@ -56,40 +44,65 @@ export default function App() {
 
     navigator.geolocation.watchPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+        const cLat = pos.coords.latitude;
+        const cLng = pos.coords.longitude;
 
-        setCurrentLat(lat);
-        setCurrentLng(lng);
+        setLat(cLat);
+        setLng(cLng);
 
-        const dStart = getDistance(lat, lng, START.lat, START.lng);
-        const dEnd = getDistance(lat, lng, END.lat, END.lng);
+        const dStart = getDistance(cLat, cLng, START.lat, START.lng);
+        const dEnd = getDistance(cLat, cLng, END.lat, END.lng);
 
-        setDistanceToStart(dStart);
-        setDistanceToEnd(dEnd);
+        setDistanceStart(dStart);
+        setDistanceEnd(dEnd);
 
-        // 🟢 START（只觸發一次）
-        if (!hasStarted && dStart < 100) {
-          setHasStarted(true);
-          setRunning(true);
-
-          startTimeRef.current = Date.now();
-
-          timerRef.current = setInterval(() => {
-            setTime(
-              (Date.now() - startTimeRef.current) / 1000
-            );
-          }, 100);
-
-          setStatus("計時開始");
+        // =========================
+        // 🟢 START 防抖（3次穩定才觸發）
+        // =========================
+        if (dStart < 100) {
+          startStableCountRef.current += 1;
+        } else {
+          startStableCountRef.current = 0;
         }
 
-        // 🔴 STOP（只在 running 時觸發）
-        if (running && dEnd < 100) {
-          setRunning(false);
-          clearInterval(timerRef.current);
+        if (
+          !startedRef.current &&
+          startStableCountRef.current >= 3
+        ) {
+          startedRef.current = true;
 
-          setStatus("抵達終點");
+          setStatus("開始計時");
+          setRunning(true);
+
+          startTimerRef.current = Date.now();
+
+          intervalRef.current = setInterval(() => {
+            setTime(
+              (Date.now() - startTimerRef.current) / 1000
+            );
+          }, 100);
+        }
+
+        // =========================
+        // 🔴 STOP 防抖（3次穩定才觸發）
+        // =========================
+        if (dEnd < 100) {
+          endStableCountRef.current += 1;
+        } else {
+          endStableCountRef.current = 0;
+        }
+
+        if (
+          startedRef.current &&
+          !stoppedRef.current &&
+          endStableCountRef.current >= 3
+        ) {
+          stoppedRef.current = true;
+
+          setRunning(false);
+          setStatus("完成");
+
+          clearInterval(intervalRef.current);
         }
       },
       (err) => {
@@ -106,7 +119,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>CCSPEED</h1>
+      <h1>CCSPEED v2</h1>
 
       <button onClick={startGPS}>
         開始GPS
@@ -118,19 +131,16 @@ export default function App() {
 
       <hr />
 
-      <h3>目前GPS座標</h3>
       <p>
-        {currentLat}, {currentLng}
-      </p>
-
-      <hr />
-
-      <p>
-        距起點：{distanceToStart.toFixed(0)} m
+        📍 目前位置：{lat.toFixed(6)}, {lng.toFixed(6)}
       </p>
 
       <p>
-        距終點：{distanceToEnd.toFixed(0)} m
+        距起點：{distanceStart.toFixed(0)} m
+      </p>
+
+      <p>
+        距終點：{distanceEnd.toFixed(0)} m
       </p>
     </div>
   );
