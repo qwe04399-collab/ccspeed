@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 
 import L from "leaflet";
 
-// 修正 marker
+// marker 修正
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -23,50 +23,52 @@ L.Icon.Default.mergeOptions({
 });
 
 
-// ======================
-// 🧠 工具：距離（公尺）
-// ======================
-function getDistance(a, b) {
+// ==========================
+// 🧠 OSRM 貼道路
+// ==========================
+async function snapToRoad(lat, lng) {
+  try {
+    const res = await fetch(
+      `https://router.project-osrm.org/nearest/v1/driving/${lng},${lat}`
+    );
+
+    const data = await res.json();
+
+    if (!data.waypoints?.length) {
+      return [lat, lng];
+    }
+
+    const loc = data.waypoints[0].location;
+    return [loc[1], loc[0]];
+  } catch {
+    return [lat, lng];
+  }
+}
+
+
+// ==========================
+// 🧠 距離
+// ==========================
+function dist(a, b) {
   const dx = a[0] - b[0];
   const dy = a[1] - b[1];
   return Math.sqrt(dx * dx + dy * dy) * 111000;
 }
 
 
-// ======================
-// 🧠 平滑（低通濾波）
-// ======================
-function smooth(prev, curr) {
-  if (!prev) return curr;
-
-  const alpha = 0.75; // 越高越穩但延遲
-  return [
-    prev[0] * alpha + curr[0] * (1 - alpha),
-    prev[1] * alpha + curr[1] * (1 - alpha),
-  ];
-}
-
-
-// ======================
-// 🧠 判斷是否合理 GPS
-// ======================
-function isValidMove(prev, curr, speed) {
-  if (!prev) return true;
-
-  const dist = getDistance(prev, curr);
-
-  // ❌ 瞬移（GPS 飄）
-  if (dist > 50) return false;
-
-  // ❌ 幾乎沒移動但 GPS 在跳
-  if (dist < 1 && speed < 0.5) return false;
-
-  return true;
-}
-
-
+// ==========================
+// 🏁 主程式
+// ==========================
 export default function MapView() {
   const [path, setPath] = useState([]);
+
+  const [state, setState] = useState("idle"); 
+  // idle → ready → running → finished
+
+  const [startTime, setStartTime] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  const [result, setResult] = useState(null);
+
   const watchRef = useRef(null);
 
   // 🟢 起點線
@@ -81,31 +83,66 @@ export default function MapView() {
     [22.826082, 120.272547],
   ];
 
+
+  // ⏱ 即時計時器
+  useEffect(() => {
+    const t = setInterval(() => {
+      setNow(Date.now());
+    }, 100);
+    return () => clearInterval(t);
+  }, []);
+
+
+  // 🧠 判斷是否靠近線
+  function nearLine(p, line) {
+    return dist(p, line[0]) < 15;
+  }
+
+
   useEffect(() => {
     watchRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
+      async (pos) => {
         const raw = [
           pos.coords.latitude,
           pos.coords.longitude,
         ];
 
-        const speed = pos.coords.speed || 0;
+        // 🟢 貼道路
+        const fixed = await snapToRoad(raw[0], raw[1]);
 
         setPath((prev) => {
           const last = prev[prev.length - 1];
 
-          // 🧠 過濾不合理點
-          if (!isValidMove(last, raw, speed)) {
+          // 🧠 防瞬移
+          if (last && dist(last, fixed) > 80) {
             return prev;
           }
 
-          // 🧠 平滑處理
-          const filtered = smooth(last, raw);
+          // ======================
+          // 🟢 起點邏輯
+          // ======================
+          if (state === "idle" && nearLine(fixed, startLine)) {
+            setState("ready");
+          }
 
-          return [...prev, filtered];
+          if (state === "ready" && !nearLine(fixed, startLine)) {
+            setState("running");
+            setStartTime(Date.now());
+          }
+
+          // ======================
+          // 🔴 終點邏輯
+          // ======================
+          if (state === "running" && nearLine(fixed, endLine)) {
+            const time = (Date.now() - startTime) / 1000;
+            setResult(time);
+            setState("finished");
+          }
+
+          return [...prev, fixed];
         });
       },
-      (err) => console.log("GPS error:", err),
+      (err) => console.log(err),
       {
         enableHighAccuracy: true,
         maximumAge: 0,
@@ -118,48 +155,59 @@ export default function MapView() {
         navigator.geolocation.clearWatch(watchRef.current);
       }
     };
-  }, []);
+  }, [state, startTime]);
+
 
   return (
-    <MapContainer
-      center={[22.835, 120.26]}
-      zoom={14}
-      style={{
-        width: "100%",
-        height: "500px",
-        borderRadius: "12px",
-      }}
-    >
-      {/* 🗺 底圖 */}
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution="&copy; OpenStreetMap"
-      />
+    <div>
+      {/* ================= UI ================= */}
+      <div style={{ padding: 10 }}>
+        <h2>🏁 CCSPEED v15</h2>
 
-      {/* 🟢 起點線 */}
-      <Polyline
-        positions={startLine}
-        pathOptions={{ color: "lime", weight: 6 }}
-      />
+        <p>狀態：{state}</p>
 
-      {/* 🔴 終點線 */}
-      <Polyline
-        positions={endLine}
-        pathOptions={{ color: "red", weight: 6 }}
-      />
+        {/* ⏱ 即時計時 */}
+        {state === "running" && (
+          <h3>
+            ⏱ 計時中：{((now - startTime) / 1000).toFixed(2)} s
+          </h3>
+        )}
 
-      {/* 🔵 GPS 軌跡（穩定版） */}
-      <Polyline
-        positions={path}
-        pathOptions={{ color: "blue", weight: 5 }}
-      />
+        {/* 🏆 成績 */}
+        {result && (
+          <h2 style={{ color: "gold" }}>
+            🏆 成績：{result.toFixed(2)} 秒
+          </h2>
+        )}
+      </div>
 
-      {/* 🚗 即時位置 */}
-      {path.length > 0 && (
-        <Marker position={path[path.length - 1]}>
-          <Popup>穩定 GPS 位置</Popup>
-        </Marker>
-      )}
-    </MapContainer>
+
+      {/* ================= 地圖 ================= */}
+      <MapContainer
+        center={[22.835, 120.26]}
+        zoom={14}
+        style={{ height: "500px", width: "100%" }}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {/* 起點 */}
+        <Polyline positions={startLine} color="lime" />
+
+        {/* 終點 */}
+        <Polyline positions={endLine} color="red" />
+
+        {/* 軌跡 */}
+        <Polyline positions={path} color="blue" />
+
+        {/* 目前位置 */}
+        {path.length > 0 && (
+          <Marker position={path[path.length - 1]}>
+            <Popup>GPS 位置</Popup>
+          </Marker>
+        )}
+      </MapContainer>
+    </div>
   );
 }
