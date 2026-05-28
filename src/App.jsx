@@ -1,10 +1,22 @@
 import { useRef, useState } from "react";
 
 export default function App() {
-  const START = { lat: 22.842872, lng: 120.245578 };
-  const END = { lat: 22.825590, lng: 120.272564 };
+  // 起點（宿舍）
+  const START = {
+    lat: 22.8433342,
+    lng: 120.2476623,
+  };
 
-  const [state, setState] = useState("IDLE");
+  // 終點（公司）
+  const END = {
+    lat: 22.825590,
+    lng: 120.272564,
+  };
+
+  const START_RADIUS = 100;
+  const END_RADIUS = 100;
+
+  const [status, setStatus] = useState("等待GPS");
   const [time, setTime] = useState(0);
 
   const [lat, setLat] = useState(0);
@@ -15,34 +27,36 @@ export default function App() {
   const [dStart, setDStart] = useState(0);
   const [dEnd, setDEnd] = useState(0);
 
-  const watchRef = useRef(null);
+  const [result, setResult] = useState("");
 
   const timerRef = useRef(null);
   const startTimeRef = useRef(0);
 
-  // =========================
-  // 🟢 Moving Average Buffers
-  // =========================
+  const watchRef = useRef(null);
+
+  // 狀態機
+  const stateRef = useRef("IDLE");
+
+  // GPS Buffer
   const latBuf = useRef([]);
   const lngBuf = useRef([]);
   const speedBuf = useRef([]);
 
-  const DIST_BUF = useRef([]);
+  const WINDOW = 5;
 
-  const WINDOW = 5; // 越大越穩，但延遲越高
+  function avg(arr) {
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
 
-  // =========================
-  // 🟢 EMA factor
-  // =========================
-  const alpha = 0.3;
+  function pushBuffer(buf, val) {
+    buf.current.push(val);
 
-  const emaRef = useRef({
-    lat: null,
-    lng: null,
-    speed: 0,
-    dStart: 0,
-    dEnd: 0,
-  });
+    if (buf.current.length > WINDOW) {
+      buf.current.shift();
+    }
+
+    return avg(buf.current);
+  }
 
   function getDistance(a, b) {
     const R = 6371000;
@@ -59,18 +73,9 @@ export default function App() {
     return 2 * R * Math.asin(Math.sqrt(x));
   }
 
-  function avg(arr) {
-    return arr.reduce((a, b) => a + b, 0) / arr.length;
-  }
-
-  function ema(prev, curr) {
-    return prev === null
-      ? curr
-      : prev * (1 - alpha) + curr * alpha;
-  }
-
   function formatTime(ms) {
     const t = ms / 1000;
+
     const m = Math.floor(t / 60);
     const s = Math.floor(t % 60);
     const cs = Math.floor((ms % 1000) / 10);
@@ -84,104 +89,126 @@ export default function App() {
     );
   }
 
-  const pushBuffer = (buf, val) => {
-    buf.current.push(val);
-    if (buf.current.length > WINDOW) {
-      buf.current.shift();
-    }
-    return avg(buf.current);
-  };
-
   const startGPS = () => {
     if (watchRef.current) return;
 
-    setState("RUNNING");
+    setStatus("GPS啟動");
 
-    watchRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const rawLat = pos.coords.latitude;
-        const rawLng = pos.coords.longitude;
-        const rawSpeed = pos.coords.speed || 0;
+    watchRef.current =
+      navigator.geolocation.watchPosition(
+        (pos) => {
+          // =========================
+          // 平滑 GPS
+          // =========================
+          const sLat = pushBuffer(
+            latBuf,
+            pos.coords.latitude
+          );
 
-        // =========================
-        // 🟢 1. Moving Average（核心）
-        // =========================
-        const mLat = pushBuffer(latBuf, rawLat);
-        const mLng = pushBuffer(lngBuf, rawLng);
-        const mSpeed = pushBuffer(speedBuf, rawSpeed);
+          const sLng = pushBuffer(
+            lngBuf,
+            pos.coords.longitude
+          );
 
-        // =========================
-        // 🟢 2. EMA（二次平滑）
-        // =========================
-        emaRef.current.lat = ema(emaRef.current.lat, mLat);
-        emaRef.current.lng = ema(emaRef.current.lng, mLng);
-        emaRef.current.speed = ema(emaRef.current.speed, mSpeed);
+          const sSpeed = pushBuffer(
+            speedBuf,
+            pos.coords.speed || 0
+          );
 
-        const sLat = emaRef.current.lat;
-        const sLng = emaRef.current.lng;
-        const sSpeed = emaRef.current.speed;
+          setLat(sLat);
+          setLng(sLng);
+          setSpeed(sSpeed);
 
-        const p = { lat: sLat, lng: sLng };
+          const p = {
+            lat: sLat,
+            lng: sLng,
+          };
 
-        setLat(sLat);
-        setLng(sLng);
-        setSpeed(sSpeed);
+          const ds = getDistance(p, START);
+          const de = getDistance(p, END);
 
-        // =========================
-        // 距離計算
-        // =========================
-        const ds = getDistance(p, START);
-        const de = getDistance(p, END);
+          setDStart(ds);
+          setDEnd(de);
 
-        const mDs = pushBuffer(DIST_BUF, ds);
-        const mDe = de; // STOP 不需要太嚴
+          // =========================
+          // 🟢 1. 進入起點區域
+          // =========================
+          if (
+            stateRef.current === "IDLE" &&
+            ds < START_RADIUS
+          ) {
+            stateRef.current = "READY";
 
-        setDStart(mDs);
-        setDEnd(mDe);
+            setStatus("已進入起點");
+          }
 
-        // =========================
-        // 🟢 START（車速 + 穩定）
-        // =========================
-        if (
-          state === "RUNNING" &&
-          mDs < 100 &&
-          sSpeed > 0.5
-        ) {
-          setState("TIMING");
+          // =========================
+          // 🟢 2. 離開起點 → 開始計時
+          // =========================
+          if (
+            stateRef.current === "READY" &&
+            ds > START_RADIUS &&
+            sSpeed > 1
+          ) {
+            stateRef.current = "TIMING";
 
-          startTimeRef.current = Date.now();
+            setStatus("開始計時");
 
-          timerRef.current = setInterval(() => {
-            setTime(Date.now() - startTimeRef.current);
-          }, 100);
+            startTimeRef.current = Date.now();
+
+            timerRef.current = setInterval(() => {
+              setTime(
+                Date.now() - startTimeRef.current
+              );
+            }, 100);
+          }
+
+          // =========================
+          // 🔴 3. 進入終點 → 停止
+          // =========================
+          if (
+            stateRef.current === "TIMING" &&
+            de < END_RADIUS
+          ) {
+            stateRef.current = "FINISHED";
+
+            clearInterval(timerRef.current);
+
+            setStatus("已抵達終點");
+          }
+
+          // =========================
+          // 🏁 4. 離開終點 → 顯示成績
+          // =========================
+          if (
+            stateRef.current === "FINISHED" &&
+            de > END_RADIUS
+          ) {
+            stateRef.current = "RESULT";
+
+            setResult(formatTime(time));
+
+            setStatus("成績完成");
+          }
+        },
+        (err) => console.log(err),
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000,
         }
-
-        // =========================
-        // 🔴 STOP
-        // =========================
-        if (state === "TIMING" && mDe < 100) {
-          setState("FINISHED");
-          clearInterval(timerRef.current);
-        }
-      },
-      (err) => console.log(err),
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 5000,
-      }
-    );
+      );
   };
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>CCSPEED v6</h1>
+      <h1>CCSPEED v7</h1>
 
       <button onClick={startGPS}>
         啟動GPS
       </button>
 
-      <h2>狀態：{state}</h2>
+      <h2>{status}</h2>
 
       <h1 style={{ fontSize: 40 }}>
         {formatTime(time)}
@@ -194,16 +221,25 @@ export default function App() {
       </p>
 
       <p>
-        🚗 速度：{(speed * 3.6).toFixed(1)} km/h
+        🚗 速度：
+        {(speed * 3.6).toFixed(1)} km/h
       </p>
 
       <p>
-        起點距離：{dStart.toFixed(0)} m
+        起點距離：
+        {dStart.toFixed(0)} m
       </p>
 
       <p>
-        終點距離：{dEnd.toFixed(0)} m
+        終點距離：
+        {dEnd.toFixed(0)} m
       </p>
+
+      <hr />
+
+      <h2>🏁 本次成績</h2>
+
+      <h1>{result}</h1>
     </div>
   );
 }
