@@ -1,6 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function App() {
+  // =========================
+  // 🏁 CCSPEED v8
+  // 虛擬起跑線版本
+  // =========================
+
   // 起點（宿舍）
   const START = {
     lat: 22.8433342,
@@ -9,14 +14,22 @@ export default function App() {
 
   // 終點（公司）
   const END = {
-    lat: 22.825590,
+    lat: 22.82559,
     lng: 120.272564,
   };
 
-  const START_RADIUS = 100;
-  const END_RADIUS = 100;
+  // =========================
+  // 虛擬線寬（公尺）
+  // =========================
+  const START_LINE_WIDTH = 15;
+  const END_LINE_WIDTH = 25;
 
-  const [status, setStatus] = useState("等待GPS");
+  // =========================
+  // UI State
+  // =========================
+  const [status, setStatus] =
+    useState("等待GPS");
+
   const [time, setTime] = useState(0);
 
   const [lat, setLat] = useState(0);
@@ -29,23 +42,36 @@ export default function App() {
 
   const [result, setResult] = useState("");
 
-  const timerRef = useRef(null);
-  const startTimeRef = useRef(0);
-
+  // =========================
+  // refs
+  // =========================
   const watchRef = useRef(null);
 
-  // 狀態機
+  const timerRef = useRef(null);
+
+  const startTimeRef = useRef(0);
+
+  const prevPosRef = useRef(null);
+
   const stateRef = useRef("IDLE");
 
-  // GPS Buffer
+  // =========================
+  // Moving Average
+  // =========================
   const latBuf = useRef([]);
   const lngBuf = useRef([]);
   const speedBuf = useRef([]);
 
   const WINDOW = 5;
 
+  // =========================
+  // Helpers
+  // =========================
   function avg(arr) {
-    return arr.reduce((a, b) => a + b, 0) / arr.length;
+    return (
+      arr.reduce((a, b) => a + b, 0) /
+      arr.length
+    );
   }
 
   function pushBuffer(buf, val) {
@@ -58,11 +84,17 @@ export default function App() {
     return avg(buf.current);
   }
 
+  // =========================
+  // GPS distance
+  // =========================
   function getDistance(a, b) {
     const R = 6371000;
 
-    const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-    const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+    const dLat =
+      ((b.lat - a.lat) * Math.PI) / 180;
+
+    const dLng =
+      ((b.lng - a.lng) * Math.PI) / 180;
 
     const x =
       Math.sin(dLat / 2) ** 2 +
@@ -70,15 +102,55 @@ export default function App() {
         Math.cos((b.lat * Math.PI) / 180) *
         Math.sin(dLng / 2) ** 2;
 
-    return 2 * R * Math.asin(Math.sqrt(x));
+    return (
+      2 * R * Math.asin(Math.sqrt(x))
+    );
   }
 
+  // =========================
+  // 🏁 Cross Line Detection
+  // =========================
+  function crossedLine(
+    prev,
+    curr,
+    target,
+    width
+  ) {
+    if (!prev) return false;
+
+    const prevDist = getDistance(
+      prev,
+      target
+    );
+
+    const currDist = getDistance(
+      curr,
+      target
+    );
+
+    // 穿越條件：
+    // 前一點在線外
+    // 現在在線內
+
+    return (
+      prevDist > width &&
+      currDist <= width
+    );
+  }
+
+  // =========================
+  // 計時格式
+  // =========================
   function formatTime(ms) {
     const t = ms / 1000;
 
     const m = Math.floor(t / 60);
+
     const s = Math.floor(t % 60);
-    const cs = Math.floor((ms % 1000) / 10);
+
+    const cs = Math.floor(
+      (ms % 1000) / 10
+    );
 
     return (
       String(m).padStart(2, "0") +
@@ -89,16 +161,19 @@ export default function App() {
     );
   }
 
+  // =========================
+  // 啟動 GPS
+  // =========================
   const startGPS = () => {
     if (watchRef.current) return;
 
-    setStatus("GPS啟動");
+    setStatus("GPS啟動中");
 
     watchRef.current =
       navigator.geolocation.watchPosition(
         (pos) => {
           // =========================
-          // 平滑 GPS
+          // GPS 平滑
           // =========================
           const sLat = pushBuffer(
             latBuf,
@@ -115,83 +190,100 @@ export default function App() {
             pos.coords.speed || 0
           );
 
-          setLat(sLat);
-          setLng(sLng);
-          setSpeed(sSpeed);
-
-          const p = {
+          const curr = {
             lat: sLat,
             lng: sLng,
           };
 
-          const ds = getDistance(p, START);
-          const de = getDistance(p, END);
+          setLat(sLat);
+          setLng(sLng);
+
+          setSpeed(sSpeed);
+
+          // =========================
+          // 距離
+          // =========================
+          const ds = getDistance(
+            curr,
+            START
+          );
+
+          const de = getDistance(
+            curr,
+            END
+          );
 
           setDStart(ds);
+
           setDEnd(de);
 
           // =========================
-          // 🟢 1. 進入起點區域
+          // 🟢 START LINE
           // =========================
           if (
-            stateRef.current === "IDLE" &&
-            ds < START_RADIUS
-          ) {
-            stateRef.current = "READY";
-
-            setStatus("已進入起點");
-          }
-
-          // =========================
-          // 🟢 2. 離開起點 → 開始計時
-          // =========================
-          if (
-            stateRef.current === "READY" &&
-            ds > START_RADIUS &&
+            stateRef.current ===
+              "IDLE" &&
+            crossedLine(
+              prevPosRef.current,
+              curr,
+              START,
+              START_LINE_WIDTH
+            ) &&
             sSpeed > 1
           ) {
-            stateRef.current = "TIMING";
+            stateRef.current =
+              "TIMING";
 
             setStatus("開始計時");
 
-            startTimeRef.current = Date.now();
+            startTimeRef.current =
+              Date.now();
 
-            timerRef.current = setInterval(() => {
-              setTime(
-                Date.now() - startTimeRef.current
-              );
-            }, 100);
+            timerRef.current =
+              setInterval(() => {
+                setTime(
+                  Date.now() -
+                    startTimeRef.current
+                );
+              }, 100);
           }
 
           // =========================
-          // 🔴 3. 進入終點 → 停止
+          // 🔴 END LINE
           // =========================
           if (
-            stateRef.current === "TIMING" &&
-            de < END_RADIUS
+            stateRef.current ===
+              "TIMING" &&
+            crossedLine(
+              prevPosRef.current,
+              curr,
+              END,
+              END_LINE_WIDTH
+            )
           ) {
-            stateRef.current = "FINISHED";
+            stateRef.current =
+              "FINISHED";
 
-            clearInterval(timerRef.current);
+            clearInterval(
+              timerRef.current
+            );
 
             setStatus("已抵達終點");
+
+            setResult(
+              formatTime(
+                Date.now() -
+                  startTimeRef.current
+              )
+            );
           }
 
-          // =========================
-          // 🏁 4. 離開終點 → 顯示成績
-          // =========================
-          if (
-            stateRef.current === "FINISHED" &&
-            de > END_RADIUS
-          ) {
-            stateRef.current = "RESULT";
-
-            setResult(formatTime(time));
-
-            setStatus("成績完成");
-          }
+          // 更新上一點
+          prevPosRef.current = curr;
         },
-        (err) => console.log(err),
+        (err) => {
+          console.log(err);
+        },
         {
           enableHighAccuracy: true,
           maximumAge: 0,
@@ -200,39 +292,79 @@ export default function App() {
       );
   };
 
+  // =========================
+  // 清除 timer
+  // =========================
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+
+      if (watchRef.current) {
+        navigator.geolocation.clearWatch(
+          watchRef.current
+        );
+      }
+    };
+  }, []);
+
   return (
-    <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>CCSPEED v7</h1>
+    <div
+      style={{
+        padding: 20,
+        fontFamily: "Arial",
+      }}
+    >
+      <h1>
+        CCSPEED v8 虛擬起跑線
+      </h1>
 
       <button onClick={startGPS}>
-        啟動GPS
+        啟動 GPS
       </button>
 
       <h2>{status}</h2>
 
-      <h1 style={{ fontSize: 40 }}>
+      <h1
+        style={{
+          fontSize: 42,
+        }}
+      >
         {formatTime(time)}
       </h1>
 
       <hr />
 
       <p>
-        📍 {lat.toFixed(6)}, {lng.toFixed(6)}
+        📍{" "}
+        {lat.toFixed(6)},
+        {" "}
+        {lng.toFixed(6)}
       </p>
 
       <p>
         🚗 速度：
-        {(speed * 3.6).toFixed(1)} km/h
+        {" "}
+        {(speed * 3.6).toFixed(1)}
+        {" "}
+        km/h
       </p>
 
       <p>
         起點距離：
-        {dStart.toFixed(0)} m
+        {" "}
+        {dStart.toFixed(0)}
+        {" "}
+        m
       </p>
 
       <p>
         終點距離：
-        {dEnd.toFixed(0)} m
+        {" "}
+        {dEnd.toFixed(0)}
+        {" "}
+        m
       </p>
 
       <hr />
