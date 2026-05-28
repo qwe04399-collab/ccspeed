@@ -1,45 +1,52 @@
 import {
-  GoogleMap,
+  MapContainer,
+  TileLayer,
   Polyline,
   Marker,
-  useLoadScript,
-} from "@react-google-maps/api";
+  Popup,
+} from "react-leaflet";
+
+import "leaflet/dist/leaflet.css";
 
 import { useEffect, useState, useRef } from "react";
 
-const containerStyle = {
-  width: "100%",
-  height: "400px",
-};
+import L from "leaflet";
 
-const center = {
-  lat: 22.835,
-  lng: 120.26,
-};
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 export default function MapView() {
-  // ⚠️ 把這裡換成你自己的 API KEY
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: "AIzaSyB8CZyLxfAmVcyG2XMq5zaxa8p8bHiOi8I",
-  });
-
   const [path, setPath] = useState([]);
   const watchRef = useRef(null);
 
-  useEffect(() => {
-    if (!isLoaded) return;
+  // 🟢 起點線
+  const startLine = [
+    [22.843293, 120.247413],
+    [22.843517, 120.247618],
+  ];
 
+  // 🔴 終點線
+  const endLine = [
+    [22.825971, 120.272488],
+    [22.826082, 120.272547],
+  ];
+
+  useEffect(() => {
     watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        const point = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        };
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
 
-        // 🔵 GPS 軌跡累積
-        setPath((prev) => [...prev, point]);
+        setPath((prev) => [...prev, [lat, lng]]);
       },
-      (err) => console.log("GPS error:", err),
+      (err) => console.log(err),
       {
         enableHighAccuracy: true,
         maximumAge: 0,
@@ -49,73 +56,60 @@ export default function MapView() {
 
     return () => {
       if (watchRef.current) {
-        navigator.geolocation.clearWatch(
-          watchRef.current
-        );
+        navigator.geolocation.clearWatch(watchRef.current);
       }
     };
-  }, [isLoaded]);
-
-  if (!isLoaded) return <div>Loading Map...</div>;
-
-  // 🟢 起點線（宿舍）
-  const startLine = [
-    { lat: 22.843293, lng: 120.247413 },
-    { lat: 22.843517, lng: 120.247618 },
-  ];
-
-  // 🔴 終點線（公司）
-  const endLine = [
-    { lat: 22.825971, lng: 120.272488 },
-    { lat: 22.826082, lng: 120.272547 },
-  ];
+  }, []);
 
   return (
-    <GoogleMap
-      mapContainerStyle={containerStyle}
-      center={center}
+    <MapContainer
+      center={[22.835, 120.26]}
       zoom={14}
+      style={{
+        width: "100%",
+        height: "500px",
+        borderRadius: "12px",
+      }}
     >
+      {/* 🗺 地圖底圖 */}
+      <TileLayer
+        attribution="&copy; OpenStreetMap contributors"
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+
       {/* 🟢 起點線 */}
       <Polyline
-        path={startLine}
-        options={{
-          strokeColor: "#00ff00",
-          strokeWeight: 4,
+        positions={startLine}
+        pathOptions={{
+          color: "lime",
+          weight: 6,
         }}
       />
 
       {/* 🔴 終點線 */}
       <Polyline
-        path={endLine}
-        options={{
-          strokeColor: "#ff0000",
-          strokeWeight: 4,
+        positions={endLine}
+        pathOptions={{
+          color: "red",
+          weight: 6,
         }}
       />
 
       {/* 🔵 GPS 軌跡 */}
       <Polyline
-        path={path}
-        options={{
-          strokeColor: "#0066ff",
-          strokeWeight: 4,
+        positions={path}
+        pathOptions={{
+          color: "blue",
+          weight: 4,
         }}
       />
 
-      {/* 起點標記 */}
-      <Marker position={startLine[0]} label="S" />
-
-      {/* 終點標記 */}
-      <Marker position={endLine[0]} label="F" />
-
-      {/* 最新位置 */}
+      {/* 🚗 目前位置 */}
       {path.length > 0 && (
-        <Marker
-          position={path[path.length - 1]}
-          label="🚗"
-        />
+        <Marker position={path[path.length - 1]}>
+          <Popup>目前位置</Popup>
+        </Marker>
       )}
-    </GoogleMap>
+    </MapContainer>
   );
 }

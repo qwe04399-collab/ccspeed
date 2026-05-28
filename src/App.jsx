@@ -9,7 +9,6 @@ export default function App() {
 
   const watchRef = useRef(null);
 
-  // 🟢 啟動 GPS
   const startGPS = () => {
     if (watchRef.current) return;
 
@@ -33,7 +32,6 @@ export default function App() {
     );
   };
 
-  // 🧹 清除 GPS
   useEffect(() => {
     return () => {
       if (watchRef.current) {
@@ -44,7 +42,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 16, fontFamily: "Arial" }}>
-      <h1>🏁 CCSPEED</h1>
+      <h1>🏁 CCSPEED v11</h1>
 
       <button
         onClick={startGPS}
@@ -59,15 +57,12 @@ export default function App() {
 
       <h3>{status}</h3>
 
-      <div style={{ marginBottom: 10 }}>
-        <p>📍 緯度：{lat.toFixed(6)}</p>
-        <p>📍 經度：{lng.toFixed(6)}</p>
-        <p>🚗 速度：{(speed * 3.6).toFixed(1)} km/h</p>
-      </div>
+      <p>📍 緯度：{lat.toFixed(6)}</p>
+      <p>📍 經度：{lng.toFixed(6)}</p>
+      <p>🚗 速度：{(speed * 3.6).toFixed(1)} km/h</p>
 
       <hr />
 
-      {/* 🗺 地圖 */}
       <MapView />
     </div>
   );
