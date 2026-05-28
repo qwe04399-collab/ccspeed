@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-
+import MapView from "./MapView";
+<MapView />
+googleMapsApiKey: " AIzaSyB8CZyLxfAmVcyG2XMq5zaxa8p8bHiOi8I"
 export default function App() {
   // =========================
   // 🏁 起點線（宿舍）
