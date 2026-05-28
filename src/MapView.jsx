@@ -7,11 +7,11 @@ import {
 } from "react-leaflet";
 
 import "leaflet/dist/leaflet.css";
-
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import L from "leaflet";
 
+// 修正 marker
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -21,6 +21,49 @@ L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
 });
+
+
+// ======================
+// 🧠 工具：距離（公尺）
+// ======================
+function getDistance(a, b) {
+  const dx = a[0] - b[0];
+  const dy = a[1] - b[1];
+  return Math.sqrt(dx * dx + dy * dy) * 111000;
+}
+
+
+// ======================
+// 🧠 平滑（低通濾波）
+// ======================
+function smooth(prev, curr) {
+  if (!prev) return curr;
+
+  const alpha = 0.75; // 越高越穩但延遲
+  return [
+    prev[0] * alpha + curr[0] * (1 - alpha),
+    prev[1] * alpha + curr[1] * (1 - alpha),
+  ];
+}
+
+
+// ======================
+// 🧠 判斷是否合理 GPS
+// ======================
+function isValidMove(prev, curr, speed) {
+  if (!prev) return true;
+
+  const dist = getDistance(prev, curr);
+
+  // ❌ 瞬移（GPS 飄）
+  if (dist > 50) return false;
+
+  // ❌ 幾乎沒移動但 GPS 在跳
+  if (dist < 1 && speed < 0.5) return false;
+
+  return true;
+}
+
 
 export default function MapView() {
   const [path, setPath] = useState([]);
@@ -41,12 +84,28 @@ export default function MapView() {
   useEffect(() => {
     watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+        const raw = [
+          pos.coords.latitude,
+          pos.coords.longitude,
+        ];
 
-        setPath((prev) => [...prev, [lat, lng]]);
+        const speed = pos.coords.speed || 0;
+
+        setPath((prev) => {
+          const last = prev[prev.length - 1];
+
+          // 🧠 過濾不合理點
+          if (!isValidMove(last, raw, speed)) {
+            return prev;
+          }
+
+          // 🧠 平滑處理
+          const filtered = smooth(last, raw);
+
+          return [...prev, filtered];
+        });
       },
-      (err) => console.log(err),
+      (err) => console.log("GPS error:", err),
       {
         enableHighAccuracy: true,
         maximumAge: 0,
@@ -71,43 +130,34 @@ export default function MapView() {
         borderRadius: "12px",
       }}
     >
-      {/* 🗺 地圖底圖 */}
+      {/* 🗺 底圖 */}
       <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution="&copy; OpenStreetMap"
       />
 
       {/* 🟢 起點線 */}
       <Polyline
         positions={startLine}
-        pathOptions={{
-          color: "lime",
-          weight: 6,
-        }}
+        pathOptions={{ color: "lime", weight: 6 }}
       />
 
       {/* 🔴 終點線 */}
       <Polyline
         positions={endLine}
-        pathOptions={{
-          color: "red",
-          weight: 6,
-        }}
+        pathOptions={{ color: "red", weight: 6 }}
       />
 
-      {/* 🔵 GPS 軌跡 */}
+      {/* 🔵 GPS 軌跡（穩定版） */}
       <Polyline
         positions={path}
-        pathOptions={{
-          color: "blue",
-          weight: 4,
-        }}
+        pathOptions={{ color: "blue", weight: 5 }}
       />
 
-      {/* 🚗 目前位置 */}
+      {/* 🚗 即時位置 */}
       {path.length > 0 && (
         <Marker position={path[path.length - 1]}>
-          <Popup>目前位置</Popup>
+          <Popup>穩定 GPS 位置</Popup>
         </Marker>
       )}
     </MapContainer>
