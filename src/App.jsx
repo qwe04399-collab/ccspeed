@@ -8,9 +8,9 @@ export default function App() {
 
   // 起點（宿舍）
   const START = {
-    lat: 22.8433342,
-    lng: 120.2476623,
-  };
+  lat: 22.842892,
+  lng: 120.248409,
+};
 
   // 終點（公司）
   const END = {
