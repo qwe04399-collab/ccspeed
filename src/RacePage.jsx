@@ -156,6 +156,8 @@ export default function RacePage({
           setAvgSpeed(avg);
 
           // 存入資料庫
+          
+          console.log("準備寫入資料庫");
           await supabase
             .from("leaderboard")
             .insert([
@@ -167,6 +169,7 @@ export default function RacePage({
                 avg_speed: avg,
               },
             ]);
+            console.log("資料已送出");
         }
       },
       console.error,
