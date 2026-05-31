@@ -135,42 +135,59 @@ export default function RacePage({
         }
 
         // 終點
-        if (
-          status === "計時中" &&
-          endDist < 15
-        ) {
-          const finalTime =
-            Date.now() - startTime;
+        // 終點
+if (
+  status === "計時中" &&
+  endDist < 15
+) {
+  const finalTime =
+    Date.now() - startTime;
 
-          setFinishTime(finalTime);
-          setStatus("完賽");
+  setFinishTime(finalTime);
+  setStatus("完賽");
 
-          const avg =
-            speedList.length > 0
-              ? speedList.reduce(
-                  (a, b) => a + b,
-                  0
-                ) / speedList.length
-              : 0;
+  const avg =
+    speedList.length > 0
+      ? speedList.reduce(
+          (a, b) => a + b,
+          0
+        ) / speedList.length
+      : 0;
 
-          setAvgSpeed(avg);
+  setAvgSpeed(avg);
 
-          // 存入資料庫
-          
-          console.log("準備寫入資料庫");
-          await supabase
-            .from("leaderboard")
-            .insert([
-              {
-                nickname,
-                vehicle_type: vehicleType,
-                vehicle_model: vehicleModel,
-                time_ms: finalTime,
-                avg_speed: avg,
-              },
-            ]);
-            console.log("資料已送出");
-        }
+  console.log("🏁 完賽");
+  console.log("準備寫入資料庫");
+
+  const { data, error } = await supabase
+    .from("leaderboard")
+    .insert([
+      {
+        nickname,
+        vehicle_type: vehicleType,
+        vehicle_model: vehicleModel,
+        time_ms: finalTime,
+        avg_speed: avg,
+      },
+    ])
+    .select();
+
+  if (error) {
+    console.error("❌ 資料庫寫入失敗", error);
+
+    alert(
+      "資料庫寫入失敗：\n" +
+      error.message
+    );
+  } else {
+    console.log(
+      "✅ 資料已成功寫入",
+      data
+    );
+
+    alert("🏆 成績已儲存");
+  }
+}
       },
       console.error,
       {
