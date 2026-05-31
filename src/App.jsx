@@ -67,3 +67,19 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
+import { supabase } from "./supabase";
+await supabase
+  .from("leaderboard")
+  .insert([
+    {
+      nickname: "蛋蛋",
+      vehicle_type: "機車",
+      vehicle_model: "JET SL+",
+      time_ms: 271220,
+      avg_speed: 54.3,
+    },
+  ]);
