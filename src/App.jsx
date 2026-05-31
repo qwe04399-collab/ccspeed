@@ -1,14 +1,15 @@
 import { useState } from "react";
 import RacePage from "./RacePage";
+import Leaderboard from "./Leaderboard";
 
 export default function App() {
-  const [started, setStarted] = useState(false);
+  const [page, setPage] = useState("home");
 
   const [nickname, setNickname] = useState("");
   const [vehicleType, setVehicleType] = useState("機車");
   const [vehicleModel, setVehicleModel] = useState("");
 
-  if (started) {
+  if (page === "race") {
     return (
       <RacePage
         nickname={nickname}
@@ -18,81 +19,55 @@ export default function App() {
     );
   }
 
+  if (page === "leaderboard") {
+    return <Leaderboard />;
+  }
+
   return (
-    <div
-      style={{
-        maxWidth: 500,
-        margin: "50px auto",
-        padding: 20,
-        textAlign: "center",
-      }}
-    >
+    <div style={{ maxWidth: 420, margin: "60px auto", padding: 20 }}>
       <h1>🏁 CCSPEED</h1>
 
-      <div style={{ marginBottom: 15 }}>
-        <input
-          type="text"
-          placeholder="輸入暱稱"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 10,
-            fontSize: 16,
-          }}
-        />
-      </div>
+      <input
+        placeholder="輸入暱稱"
+        value={nickname}
+        onChange={(e) => setNickname(e.target.value)}
+        style={{ width: "100%", padding: 12, marginBottom: 14 }}
+      />
 
-      <div style={{ marginBottom: 15 }}>
-        <select
-          value={vehicleType}
-          onChange={(e) => setVehicleType(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 10,
-            fontSize: 16,
-          }}
-        >
-          <option value="機車">機車</option>
-          <option value="汽車">汽車</option>
-        </select>
-      </div>
+      <select
+        value={vehicleType}
+        onChange={(e) => setVehicleType(e.target.value)}
+        style={{ width: "100%", padding: 12, marginBottom: 14 }}
+      >
+        <option value="機車">機車</option>
+        <option value="汽車">汽車</option>
+      </select>
 
-      <div style={{ marginBottom: 15 }}>
-        <input
-          type="text"
-          placeholder="輸入車款"
-          value={vehicleModel}
-          onChange={(e) => setVehicleModel(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 10,
-            fontSize: 16,
-          }}
-        />
-      </div>
+      <input
+        placeholder="輸入車款"
+        value={vehicleModel}
+        onChange={(e) => setVehicleModel(e.target.value)}
+        style={{ width: "100%", padding: 12, marginBottom: 20 }}
+      />
 
       <button
         onClick={() => {
-          if (!nickname) {
-            alert("請輸入暱稱");
+          if (!nickname || !vehicleModel) {
+            alert("請輸入暱稱與車款");
             return;
           }
-
-          if (!vehicleModel) {
-            alert("請輸入車款");
-            return;
-          }
-
-          setStarted(true);
+          setPage("race");
         }}
-        style={{
-          padding: "12px 24px",
-          fontSize: 18,
-          cursor: "pointer",
-        }}
+        style={{ width: "100%", padding: 14, fontSize: 18 }}
       >
         開始挑戰
+      </button>
+
+      <button
+        onClick={() => setPage("leaderboard")}
+        style={{ width: "100%", padding: 14, fontSize: 18, marginTop: 12 }}
+      >
+        查看排行榜
       </button>
     </div>
   );
