@@ -25,22 +25,19 @@ L.Icon.Default.mergeOptions({
 
 // 🔴 起點線：紅線
 const startLine = [
-  [22.843293, 120.247413],
-  [22.843517, 120.247618],
+  [22.825971, 120.272488],
+  [22.826082, 120.272547],
 ];
 
 // 🟢 終點線：綠線
 const endLine = [
-  [22.846284, 120.246707],
-  [22.845964, 120.247325],
+  [22.843293, 120.247413],
+  [22.843517, 120.247618],
 ];
 
-// 最精準 3m 觸發版
-const START_READY_M = 3;
-const END_READY_M = 3;
 const MIN_START_SPEED_KMH = 5;
 const MAX_VALID_SPEED_KMH = 180;
-const MAX_GPS_ACCURACY_M = 8;
+const MAX_GPS_ACCURACY_M = 15;
 
 function FollowMarker({ position }) {
   const map = useMap();
@@ -74,8 +71,10 @@ function pointToLineDistance(p, a, b) {
 
   const px = p[1] * lngScale;
   const py = p[0] * latScale;
+
   const ax = a[1] * lngScale;
   const ay = a[0] * latScale;
+
   const bx = b[1] * lngScale;
   const by = b[0] * latScale;
 
@@ -233,11 +232,13 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
         setGpsAccuracy(accuracy);
         setCurrentPoint(point);
 
+        const prevPoint = lastPointRef.current;
+
         if (accuracy > MAX_GPS_ACCURACY_M) {
+          lastPointRef.current = point;
+          lastTimeRef.current = now;
           return;
         }
-
-        const prevPoint = lastPointRef.current;
 
         const gpsSpeed =
           pos.coords.speed !== null && pos.coords.speed >= 0
@@ -276,13 +277,8 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
         const crossedEnd = crossedLine(prevPoint, point, endLine);
         const towardEnd = isMovingTowardTarget(prevPoint, point, endLine);
 
-        if (statusRef.current === "等待起跑" && sDist < START_READY_M) {
-          setRaceStatus("準備起跑");
-        }
-
         if (
-          statusRef.current === "準備起跑" &&
-          sDist < START_READY_M &&
+          statusRef.current === "等待起跑" &&
           crossedStart &&
           towardEnd &&
           finalSpeed >= MIN_START_SPEED_KMH
@@ -307,11 +303,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
           setAvgSpeed(avg);
         }
 
-        if (
-          statusRef.current === "計時中" &&
-          eDist < END_READY_M &&
-          crossedEnd
-        ) {
+        if (statusRef.current === "計時中" && crossedEnd) {
           const finalTime = Date.now() - startTimeRef.current;
 
           const avg =
@@ -350,7 +342,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
 
   return (
     <div style={{ textAlign: "center", padding: 16, fontFamily: "Arial" }}>
-      <h1>🏁 CCSPEED 3m Road Test</h1>
+      <h1>🏁 CCSPEED Line Crossing</h1>
 
       <h2>{status}</h2>
 
@@ -425,9 +417,9 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
       )}
 
       <p style={{ fontSize: 13, color: "#666" }}>
-        起點：紅線，3m內 + 穿越 + 往終點方向 + 速度 {MIN_START_SPEED_KMH} km/h 以上
+        起點：紅線，移動路徑穿越 + 往終點方向 + 速度 {MIN_START_SPEED_KMH} km/h 以上
         <br />
-        終點：綠線，3m內 + 穿越
+        終點：綠線，移動路徑穿越即完賽
         <br />
         GPS 精度限制：{MAX_GPS_ACCURACY_M}m
       </p>
