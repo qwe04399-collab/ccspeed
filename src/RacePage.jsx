@@ -23,32 +23,31 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// 起點線
+// 🔴 起點線：紅線
 const startLine = [
   [22.843293, 120.247413],
   [22.843517, 120.247618],
 ];
 
-// 終點線
+// 🟢 終點線：綠線
 const endLine = [
-  [22.825971, 120.272488],
-  [22.826082, 120.272547],
+  [22.846284, 120.246707],
+  [22.845964, 120.247325],
 ];
 
-// 判斷門檻
-const START_ENTER_M = 40;
-const START_EXIT_M = 50;
-const END_DETECT_M = 45;
+// 最精準 3m 觸發版
+const START_READY_M = 3;
+const END_READY_M = 3;
 const MIN_START_SPEED_KMH = 5;
 const MAX_VALID_SPEED_KMH = 180;
-const MAX_GPS_ACCURACY_M = 35;
+const MAX_GPS_ACCURACY_M = 8;
 
 function FollowMarker({ position }) {
   const map = useMap();
 
   useEffect(() => {
     if (position) {
-      map.setView(position, 18);
+      map.setView(position, 18, { animate: true });
     }
   }, [position, map]);
 
@@ -75,16 +74,13 @@ function pointToLineDistance(p, a, b) {
 
   const px = p[1] * lngScale;
   const py = p[0] * latScale;
-
   const ax = a[1] * lngScale;
   const ay = a[0] * latScale;
-
   const bx = b[1] * lngScale;
   const by = b[0] * latScale;
 
   const dx = bx - ax;
   const dy = by - ay;
-
   const lenSq = dx * dx + dy * dy;
 
   let t =
@@ -101,7 +97,7 @@ function pointToLineDistance(p, a, b) {
 }
 
 function crossedLine(prev, curr, line) {
-  if (!prev) return false;
+  if (!prev || !curr) return false;
 
   const [a, b] = line;
 
@@ -110,6 +106,20 @@ function crossedLine(prev, curr, line) {
     (b[0] - a[0]) * (p[1] - a[1]);
 
   return sign(prev) * sign(curr) < 0;
+}
+
+function isMovingTowardTarget(prev, curr, targetLine) {
+  if (!prev || !curr) return false;
+
+  const targetCenter = [
+    (targetLine[0][0] + targetLine[1][0]) / 2,
+    (targetLine[0][1] + targetLine[1][1]) / 2,
+  ];
+
+  const prevDist = distanceMeters(prev, targetCenter);
+  const currDist = distanceMeters(curr, targetCenter);
+
+  return currDist < prevDist;
 }
 
 function formatTime(ms) {
@@ -146,12 +156,10 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
   const statusRef = useRef("等待起跑");
   const startTimeRef = useRef(null);
 
-  const lastRawPointRef = useRef(null);
-  const lastRawTimeRef = useRef(null);
+  const lastPointRef = useRef(null);
+  const lastTimeRef = useRef(null);
 
-  const lastGoodPointRef = useRef(null);
-  const lastGoodTimeRef = useRef(null);
-
+  const speedRef = useRef(0);
   const speedListRef = useRef([]);
   const savedRef = useRef(false);
 
@@ -174,113 +182,109 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
     if (savedRef.current) return;
     savedRef.current = true;
 
-    const { data, error } = await supabase
-      .from("leaderboard")
-      .insert([
-        {
-          nickname,
-          vehicle_type: vehicleType,
-          vehicle_model: vehicleModel,
-          time_ms: finalTime,
-          avg_speed: avg,
-        },
-      ])
-      .select();
+    const { error } = await supabase.from("leaderboard").insert([
+      {
+        nickname,
+        vehicle_type: vehicleType,
+        vehicle_model: vehicleModel,
+        time_ms: finalTime,
+        avg_speed: avg,
+      },
+    ]);
 
     if (error) {
       console.error("資料庫寫入失敗", error);
       alert("資料庫寫入失敗：" + error.message);
     } else {
-      console.log("成績已儲存", data);
       alert("🏆 成績已儲存");
     }
   }
 
+  function resetRace() {
+    setRaceStatus("等待起跑");
+    setTimer(0);
+    setSpeed(0);
+    setAvgSpeed(0);
+    setFinishTime(null);
+    setStartDist(0);
+    setEndDist(0);
+    setPath([]);
+
+    startTimeRef.current = null;
+    lastPointRef.current = null;
+    lastTimeRef.current = null;
+    speedRef.current = 0;
+    speedListRef.current = [];
+    savedRef.current = false;
+  }
+
   useEffect(() => {
+    if (!navigator.geolocation) {
+      alert("此裝置不支援 GPS 定位");
+      return;
+    }
+
     watchRef.current = navigator.geolocation.watchPosition(
       async (pos) => {
-        const rawPoint = [pos.coords.latitude, pos.coords.longitude];
+        const point = [pos.coords.latitude, pos.coords.longitude];
         const now = Date.now();
 
         const accuracy = pos.coords.accuracy || 999;
         setGpsAccuracy(accuracy);
+        setCurrentPoint(point);
 
         if (accuracy > MAX_GPS_ACCURACY_M) {
-          console.log("GPS 精度太差，忽略：", accuracy);
           return;
         }
 
-        if (lastGoodPointRef.current && lastGoodTimeRef.current) {
-          const jumpDistance = distanceMeters(
-            lastGoodPointRef.current,
-            rawPoint
-          );
+        const prevPoint = lastPointRef.current;
 
-          const dt = (now - lastGoodTimeRef.current) / 1000;
-
-          if (dt > 0) {
-            const jumpSpeed = (jumpDistance / dt) * 3.6;
-
-            if (jumpSpeed > MAX_VALID_SPEED_KMH) {
-              console.log("GPS 瞬移過濾：", jumpSpeed.toFixed(0), "km/h");
-              return;
-            }
-          }
-        }
-
-        const prevPoint = lastGoodPointRef.current;
+        const gpsSpeed =
+          pos.coords.speed !== null && pos.coords.speed >= 0
+            ? pos.coords.speed * 3.6
+            : 0;
 
         let computedSpeed = 0;
 
-        if (lastRawPointRef.current && lastRawTimeRef.current) {
-          const dt = (now - lastRawTimeRef.current) / 1000;
-          const meters = distanceMeters(lastRawPointRef.current, rawPoint);
+        if (prevPoint && lastTimeRef.current) {
+          const dt = (now - lastTimeRef.current) / 1000;
+          const meters = distanceMeters(prevPoint, point);
 
           if (dt > 0) {
             computedSpeed = (meters / dt) * 3.6;
           }
         }
 
-        let finalSpeed =
-          computedSpeed > 0
-            ? computedSpeed
-            : Math.max(0, (pos.coords.speed || 0) * 3.6);
+        let finalSpeed = gpsSpeed > 0 ? gpsSpeed : computedSpeed;
 
         if (finalSpeed > MAX_VALID_SPEED_KMH) {
-          finalSpeed = speed;
+          finalSpeed = speedRef.current;
         }
 
+        speedRef.current = finalSpeed;
         setSpeed(finalSpeed);
-        setCurrentPoint(rawPoint);
-        setPath((prev) => [...prev, rawPoint]);
 
-        const sDist = pointToLineDistance(rawPoint, startLine[0], startLine[1]);
-        const eDist = pointToLineDistance(rawPoint, endLine[0], endLine[1]);
+        setPath((prev) => [...prev, point]);
+
+        const sDist = pointToLineDistance(point, startLine[0], startLine[1]);
+        const eDist = pointToLineDistance(point, endLine[0], endLine[1]);
 
         setStartDist(sDist);
         setEndDist(eDist);
 
-        const crossedStart = crossedLine(prevPoint, rawPoint, startLine);
-        const crossedEnd = crossedLine(prevPoint, rawPoint, endLine);
+        const crossedStart = crossedLine(prevPoint, point, startLine);
+        const crossedEnd = crossedLine(prevPoint, point, endLine);
+        const towardEnd = isMovingTowardTarget(prevPoint, point, endLine);
 
-        if (statusRef.current === "等待起跑" && sDist < START_ENTER_M) {
+        if (statusRef.current === "等待起跑" && sDist < START_READY_M) {
           setRaceStatus("準備起跑");
         }
 
         if (
-          statusRef.current === "等待起跑" &&
-          crossedStart &&
-          finalSpeed >= MIN_START_SPEED_KMH
-        ) {
-          startTimeRef.current = Date.now();
-          speedListRef.current = [];
-          setTimer(0);
-          setRaceStatus("計時中");
-        }
-
-        if (
           statusRef.current === "準備起跑" &&
-          (sDist > START_EXIT_M || crossedStart) &&
+          sDist < START_READY_M &&
+          crossedStart &&
+          towardEnd &&
           finalSpeed >= MIN_START_SPEED_KMH
         ) {
           startTimeRef.current = Date.now();
@@ -305,7 +309,8 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
 
         if (
           statusRef.current === "計時中" &&
-          (eDist < END_DETECT_M || crossedEnd)
+          eDist < END_READY_M &&
+          crossedEnd
         ) {
           const finalTime = Date.now() - startTimeRef.current;
 
@@ -322,11 +327,8 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
           await saveResult(finalTime, avg);
         }
 
-        lastRawPointRef.current = rawPoint;
-        lastRawTimeRef.current = now;
-
-        lastGoodPointRef.current = rawPoint;
-        lastGoodTimeRef.current = now;
+        lastPointRef.current = point;
+        lastTimeRef.current = now;
       },
       (err) => {
         console.error("GPS 錯誤", err);
@@ -334,7 +336,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 1000,
+        maximumAge: 0,
         timeout: 30000,
       }
     );
@@ -344,27 +346,15 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
         navigator.geolocation.clearWatch(watchRef.current);
       }
     };
-  }, [nickname, vehicleType, vehicleModel, speed]);
+  }, [nickname, vehicleType, vehicleModel]);
 
   return (
-    <div
-      style={{
-        textAlign: "center",
-        padding: 16,
-        fontFamily: "Arial",
-      }}
-    >
-      <h1>🏁 CCSPEED Debug</h1>
+    <div style={{ textAlign: "center", padding: 16, fontFamily: "Arial" }}>
+      <h1>🏁 CCSPEED 3m Road Test</h1>
 
       <h2>{status}</h2>
 
-      <div
-        style={{
-          fontSize: 46,
-          fontWeight: "bold",
-          margin: "18px 0",
-        }}
-      >
+      <div style={{ fontSize: 46, fontWeight: "bold", margin: "18px 0" }}>
         {formatTime(finishTime ?? timer)}
       </div>
 
@@ -374,16 +364,16 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
       <hr />
 
       <p>📡 GPS 精度：{gpsAccuracy.toFixed(0)} m</p>
-      <p>起點線距離：{startDist.toFixed(0)} m</p>
-      <p>終點線距離：{endDist.toFixed(0)} m</p>
+      <p>🔴 起點距離：{startDist.toFixed(1)} m</p>
+      <p>🟢 終點距離：{endDist.toFixed(1)} m</p>
+
+      <button onClick={resetRace} style={{ padding: "10px 16px", margin: 6 }}>
+        重新開始
+      </button>
 
       <button
         onClick={() => setShowMap(!showMap)}
-        style={{
-          padding: "10px 16px",
-          margin: "10px 0",
-          fontSize: 16,
-        }}
+        style={{ padding: "10px 16px", margin: 6 }}
       >
         {showMap ? "隱藏地圖" : "顯示地圖"}
       </button>
@@ -408,12 +398,12 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
 
             <Polyline
               positions={startLine}
-              pathOptions={{ color: "lime", weight: 6 }}
+              pathOptions={{ color: "red", weight: 7 }}
             />
 
             <Polyline
               positions={endLine}
-              pathOptions={{ color: "red", weight: 6 }}
+              pathOptions={{ color: "lime", weight: 7 }}
             />
 
             <Polyline
@@ -422,16 +412,24 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
             />
 
             <Marker position={currentPoint}>
-              <Popup>目前位置</Popup>
+              <Popup>
+                目前位置
+                <br />
+                GPS：{gpsAccuracy.toFixed(0)} m
+                <br />
+                速度：{speed.toFixed(0)} km/h
+              </Popup>
             </Marker>
           </MapContainer>
         </div>
       )}
 
       <p style={{ fontSize: 13, color: "#666" }}>
-        起點判定：進入 {START_ENTER_M}m / 離開 {START_EXIT_M}m
+        起點：紅線，3m內 + 穿越 + 往終點方向 + 速度 {MIN_START_SPEED_KMH} km/h 以上
         <br />
-        終點判定：{END_DETECT_M}m
+        終點：綠線，3m內 + 穿越
+        <br />
+        GPS 精度限制：{MAX_GPS_ACCURACY_M}m
       </p>
 
       {finishTime && (
