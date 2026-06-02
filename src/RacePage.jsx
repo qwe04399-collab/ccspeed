@@ -30,16 +30,15 @@ L.Icon.Default.mergeOptions({
 // =======================
 const TEST_MODE = true;
 
-// 🔴 楠西線
+// 起點線
 const startLine = [
-  [22.843293, 120.247413],
-  [22.843517, 120.247618],
+  [track.start_left_lat, track.start_left_lng],
+  [track.start_right_lat, track.start_right_lng],
 ];
-
-// 🟢 大埔線
+//終點線
 const endLine = [
-  [22.825971, 120.272488],
-  [22.826082, 120.272547],
+  [track.finish_left_lat, track.finish_left_lng],
+  [track.finish_right_lat, track.finish_right_lng],
 ];
 
 const MIN_START_SPEED_KMH = 5;
@@ -127,7 +126,7 @@ function formatTime(ms) {
   )}.${String(centiseconds).padStart(2, "0")}`;
 }
 
-export default function RacePage({ nickname, vehicleType, vehicleModel }) {
+export default function RacePage({nickname,vehicleType,vehicleModel,track,})  {
   const [status, setStatus] = useState("等待起跑");
   const [direction, setDirection] = useState("偵測中");
   const [timer, setTimer] = useState(0);
@@ -182,8 +181,9 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
     const { error } = await supabase.from("runs").insert([
       {
         nickname,
-        track_id: null,
+        track_id: track.id,
         direction: directionRef.current,
+        track_name: track.name,
         vehicle_type: vehicleType,
         vehicle_model: vehicleModel,
         elapsed_ms: finalTime,
