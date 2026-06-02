@@ -23,6 +23,13 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+// =======================
+// 測試模式開關
+// true  = 在家測試，GPS 回傳後自動開始，5 秒後完賽
+// false = 正式路試，穿越起點線開始，穿越終點線完賽
+// =======================
+const TEST_MODE = true;
+
 // 🔴 楠西線
 const startLine = [
   [22.843293, 120.247413],
@@ -35,16 +42,15 @@ const endLine = [
   [22.826082, 120.272547],
 ];
 
-
-//臨時修改區
-//原始
-//const MAX_GPS_ACCURACY_M = 15;
-//測試
-// //const MAX_GPS_ACCURACY_M = 999;
-
 const MIN_START_SPEED_KMH = 5;
 const MAX_VALID_SPEED_KMH = 180;
-const MAX_GPS_ACCURACY_M = 15;
+
+// =======================
+// GPS 精度限制
+// 測試模式放寬到 999m
+// 正式模式限制 15m
+// =======================
+const MAX_GPS_ACCURACY_M = TEST_MODE ? 999 : 15;
 
 function FollowMarker({ position }) {
   const map = useMap();
@@ -272,35 +278,35 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
 
         const crossedStartLine = crossedLine(prevPoint, point, startLine);
         const crossedEndLine = crossedLine(prevPoint, point, endLine);
-        
-        
-        //測試區
 
-        //標準  
-        
-        //if (statusRef.current === "等待起跑" &&finalSpeed >= MIN_START_SPEED_KMH) 
-        
-        //五秒版本
-
-        //if (statusRef.current === "等待起跑") 
-
-        //===================================================================
-        if (statusRef.current === "等待起跑")
-          {
-          if (crossedStartLine) {
+        // =======================
+        // 起跑判斷
+        // TEST_MODE：GPS 回傳後直接開始
+        // 正式模式：穿越楠西線或大埔線才開始
+        // =======================
+        if (statusRef.current === "等待起跑") {
+          if (TEST_MODE) {
             setRaceDirection("楠西→大埔");
             startTimeRef.current = Date.now();
             speedListRef.current = [];
             setTimer(0);
             setRaceStatus("計時中");
-          }
+          } else if (finalSpeed >= MIN_START_SPEED_KMH) {
+            if (crossedStartLine) {
+              setRaceDirection("楠西→大埔");
+              startTimeRef.current = Date.now();
+              speedListRef.current = [];
+              setTimer(0);
+              setRaceStatus("計時中");
+            }
 
-          if (crossedEndLine) {
-            setRaceDirection("大埔→楠西");
-            startTimeRef.current = Date.now();
-            speedListRef.current = [];
-            setTimer(0);
-            setRaceStatus("計時中");
+            if (crossedEndLine) {
+              setRaceDirection("大埔→楠西");
+              startTimeRef.current = Date.now();
+              speedListRef.current = [];
+              setTimer(0);
+              setRaceStatus("計時中");
+            }
           }
         }
 
@@ -327,18 +333,21 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
           statusRef.current === "計時中" &&
           directionRef.current === "大埔→楠西" &&
           crossedStartLine;
-        
-        //測試
-        
-          //修改計時方式
 
-        //標準
-        //if (shouldFinishForward || shouldFinishReverse) 
-        
-        //五秒版本
-        //if (statusRef.current === "計時中" &&  Date.now() - startTimeRef.current > 5000)
+        // =======================
+        // 完賽判斷
+        // TEST_MODE：5 秒後自動完賽
+        // 正式模式：依方向穿越對應終點線完賽
+        // =======================
+        const shouldFinishTest =
+          TEST_MODE &&
+          statusRef.current === "計時中" &&
+          Date.now() - startTimeRef.current > 5000;
 
-        if (statusRef.current === "計時中" &&  Date.now() - startTimeRef.current > 5000) {
+        const shouldFinishOfficial =
+          !TEST_MODE && (shouldFinishForward || shouldFinishReverse);
+
+        if (shouldFinishTest || shouldFinishOfficial) {
           const finalTime = Date.now() - startTimeRef.current;
 
           const avg =
@@ -381,6 +390,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
 
       <h2>{status}</h2>
       <h3>方向：{direction}</h3>
+      <p>目前模式：{TEST_MODE ? "5秒測試模式" : "正式GPS模式"}</p>
 
       <div style={{ fontSize: 46, fontWeight: "bold", margin: "18px 0" }}>
         {formatTime(finishTime ?? timer)}
@@ -424,20 +434,9 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
 
             <FollowMarker position={currentPoint} />
 
-            <Polyline
-              positions={startLine}
-              pathOptions={{ color: "red", weight: 7 }}
-            />
-
-            <Polyline
-              positions={endLine}
-              pathOptions={{ color: "lime", weight: 7 }}
-            />
-
-            <Polyline
-              positions={path}
-              pathOptions={{ color: "blue", weight: 4 }}
-            />
+            <Polyline positions={startLine} pathOptions={{ color: "red", weight: 7 }} />
+            <Polyline positions={endLine} pathOptions={{ color: "lime", weight: 7 }} />
+            <Polyline positions={path} pathOptions={{ color: "blue", weight: 4 }} />
 
             <Marker position={currentPoint}>
               <Popup>
