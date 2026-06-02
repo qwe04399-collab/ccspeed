@@ -36,7 +36,7 @@ export default function Leaderboard() {
     }
 
     setMotorcycle(data.filter((item) => item.vehicle_type === "速克達" ||
-item.vehicle_type === "檔車"));
+                                        item.vehicle_type === "檔車"));
     setCar(data.filter((item) => item.vehicle_type === "汽車"));
     setLoading(false);
   };
