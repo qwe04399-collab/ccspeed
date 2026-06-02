@@ -35,6 +35,13 @@ const endLine = [
   [22.826082, 120.272547],
 ];
 
+
+//臨時修改區
+//原始
+//const MAX_GPS_ACCURACY_M = 15;
+//測試
+// //const MAX_GPS_ACCURACY_M = 999;
+
 const MIN_START_SPEED_KMH = 5;
 const MAX_VALID_SPEED_KMH = 180;
 const MAX_GPS_ACCURACY_M = 15;
@@ -267,7 +274,8 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
         const crossedEndLine = crossedLine(prevPoint, point, endLine);
         
         
-        //以下改改開始計時方式
+        //測試區
+
         //標準  
         
         //if (statusRef.current === "等待起跑" &&finalSpeed >= MIN_START_SPEED_KMH) 
@@ -319,7 +327,10 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
           statusRef.current === "計時中" &&
           directionRef.current === "大埔→楠西" &&
           crossedStartLine;
-        //修改計時方式
+        
+        //測試
+        
+          //修改計時方式
 
         //標準
         //if (shouldFinishForward || shouldFinishReverse) 
