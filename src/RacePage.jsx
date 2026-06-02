@@ -279,12 +279,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
         const crossedEnd = crossedLine(prevPoint, point, endLine);
         const towardEnd = isMovingTowardTarget(prevPoint, point, endLine);
 
-        if (
-          statusRef.current === "等待起跑" &&
-          crossedStart &&
-          towardEnd &&
-          finalSpeed >= MIN_START_SPEED_KMH
-        ) {
+        if (statusRef.current === "等待起跑") {
           startTimeRef.current = Date.now();
           speedListRef.current = [];
           setTimer(0);
@@ -305,7 +300,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
           setAvgSpeed(avg);
         }
 
-        if (statusRef.current === "計時中" && crossedEnd) {
+        if (statusRef.current === "計時中" && Date.now() - startTimeRef.current > 5000) {
           const finalTime = Date.now() - startTimeRef.current;
 
           const avg =
