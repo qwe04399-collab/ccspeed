@@ -178,28 +178,26 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
   }, []);
 
   async function saveResult(finalTime, avg) {
-  if (savedRef.current) return;
-  savedRef.current = true;
+    if (savedRef.current) return;
+    savedRef.current = true;
 
-  const { error } = await supabase.from("runs").insert([
-    {
-      direction: "楠西→大埔",
-      vehicle_type: vehicleType,
-      vehicle_model: vehicleModel,
-      elapsed_ms: finalTime,
-      avg_speed: avg,
-      max_speed: speedRef.current,
-      finish_time: new Date().toISOString(),
-    },
-  ]);
+    const { error } = await supabase.from("leaderboard").insert([
+      {
+        nickname,
+        vehicle_type: vehicleType,
+        vehicle_model: vehicleModel,
+        time_ms: finalTime,
+        avg_speed: avg,
+      },
+    ]);
 
-  if (error) {
-    console.error("資料庫寫入失敗", error);
-    alert("資料庫寫入失敗：" + error.message);
-  } else {
-    alert("🏆 成績已儲存");
+    if (error) {
+      console.error("資料庫寫入失敗", error);
+      alert("資料庫寫入失敗：" + error.message);
+    } else {
+      alert("🏆 成績已儲存");
+    }
   }
-}
 
   function resetRace() {
     setRaceStatus("等待起跑");
@@ -300,7 +298,10 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
           setAvgSpeed(avg);
         }
 
-        if (statusRef.current === "計時中" && Date.now() - startTimeRef.current > 5000) {
+        if (
+          statusRef.current === "計時中" &&
+            Date.now() - startTimeRef.current > 5000
+          ) {
           const finalTime = Date.now() - startTimeRef.current;
 
           const avg =
