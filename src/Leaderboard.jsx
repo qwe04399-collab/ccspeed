@@ -25,9 +25,9 @@ export default function Leaderboard() {
     setLoading(true);
 
     const { data, error } = await supabase
-      .from("leaderboard")
+      .from("runs")
       .select("*")
-      .order("time_ms", { ascending: true });
+      .order("elapsed_ms", { ascending: true });
 
     if (error) {
       console.error("排行榜讀取失敗", error);
@@ -35,7 +35,8 @@ export default function Leaderboard() {
       return;
     }
 
-    setMotorcycle(data.filter((item) => item.vehicle_type === "機車"));
+    setMotorcycle(data.filter((item) => item.vehicle_type === "速克達" ||
+item.vehicle_type === "檔車"));
     setCar(data.filter((item) => item.vehicle_type === "汽車"));
     setLoading(false);
   };
@@ -69,7 +70,7 @@ export default function Leaderboard() {
           <h3>#{index + 1}</h3>
           <p>暱稱：{row.nickname}</p>
           <p>車款：{row.vehicle_model}</p>
-          <p>成績：{formatTime(row.time_ms)}</p>
+          <p>成績：{formatTime(row.elapsed_ms)}</p>
           <p>平均速度：{Number(row.avg_speed).toFixed(1)} km/h</p>
         </div>
       ))}
@@ -93,7 +94,7 @@ export default function Leaderboard() {
           <h3>#{index + 1}</h3>
           <p>暱稱：{row.nickname}</p>
           <p>車款：{row.vehicle_model}</p>
-          <p>成績：{formatTime(row.time_ms)}</p>
+          <p>成績：{formatTime(row.elapsed_ms)}</p>
           <p>平均速度：{Number(row.avg_speed).toFixed(1)} km/h</p>
         </div>
       ))}
