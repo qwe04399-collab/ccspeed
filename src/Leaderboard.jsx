@@ -16,9 +16,17 @@ function formatTime(ms) {
   )}`;
 }
 
+const directions = ["楠西→大埔", "大埔→楠西"];
+
+const vehicleGroups = [
+  { key: "速克達", title: "🛵 速克達組" },
+  { key: "檔車", title: "🏍 檔車組" },
+  { key: "汽車", title: "🚗 汽車組" },
+];
+
 export default function Leaderboard() {
-  const [motorcycle, setMotorcycle] = useState([]);
-  const [car, setCar] = useState([]);
+  const [selectedDirection, setSelectedDirection] = useState("楠西→大埔");
+  const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadLeaderboard = async () => {
@@ -27,6 +35,8 @@ export default function Leaderboard() {
     const { data, error } = await supabase
       .from("runs")
       .select("*")
+      .eq("direction", selectedDirection)
+      .eq("is_valid", true)
       .order("elapsed_ms", { ascending: true });
 
     if (error) {
@@ -35,69 +45,97 @@ export default function Leaderboard() {
       return;
     }
 
-    setMotorcycle(data.filter((item) => item.vehicle_type === "速克達" ||
-                                        item.vehicle_type === "檔車"));
-    setCar(data.filter((item) => item.vehicle_type === "汽車"));
+    setRuns(data || []);
     setLoading(false);
   };
 
   useEffect(() => {
     loadLeaderboard();
-  }, []);
+  }, [selectedDirection]);
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial" }}>
+    <div style={{ maxWidth: 520, margin: "40px auto", padding: 20 }}>
       <h1>🏆 CCSPEED 排行榜</h1>
 
-      <button onClick={loadLeaderboard}>重新整理</button>
+      <h2>楠西 ↔ 大埔</h2>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+        {directions.map((dir) => (
+          <button
+            key={dir}
+            onClick={() => setSelectedDirection(dir)}
+            style={{
+              flex: 1,
+              padding: 12,
+              fontSize: 16,
+              fontWeight: selectedDirection === dir ? "bold" : "normal",
+              border:
+                selectedDirection === dir
+                  ? "2px solid #fff"
+                  : "1px solid #555",
+              borderRadius: 8,
+            }}
+          >
+            {dir}
+          </button>
+        ))}
+      </div>
+
+      <button
+        onClick={loadLeaderboard}
+        style={{ width: "100%", padding: 12, marginBottom: 20 }}
+      >
+        重新整理
+      </button>
 
       {loading && <p>讀取中...</p>}
 
-      <h2>🏍 機車組</h2>
+      {!loading &&
+        vehicleGroups.map((group) => {
+          const groupRuns = runs.filter(
+            (row) => row.vehicle_type === group.key
+          );
 
-      {motorcycle.length === 0 && <p>目前沒有成績</p>}
+          return (
+            <div key={group.key} style={{ marginBottom: 28 }}>
+              <h2>{group.title}</h2>
 
-      {motorcycle.map((row, index) => (
-        <div
-          key={row.id}
-          style={{
-            border: "1px solid #444",
-            padding: 12,
-            marginBottom: 10,
-            borderRadius: 8,
-          }}
-        >
-          <h3>#{index + 1}</h3>
-          <p>暱稱：{row.nickname}</p>
-          <p>車款：{row.vehicle_model}</p>
-          <p>成績：{formatTime(row.elapsed_ms)}</p>
-          <p>平均速度：{Number(row.avg_speed).toFixed(1)} km/h</p>
-        </div>
-      ))}
+              {groupRuns.length === 0 && <p>目前沒有成績</p>}
 
-      <hr />
-
-      <h2>🚗 汽車組</h2>
-
-      {car.length === 0 && <p>目前沒有成績</p>}
-
-      {car.map((row, index) => (
-        <div
-          key={row.id}
-          style={{
-            border: "1px solid #444",
-            padding: 12,
-            marginBottom: 10,
-            borderRadius: 8,
-          }}
-        >
-          <h3>#{index + 1}</h3>
-          <p>暱稱：{row.nickname}</p>
-          <p>車款：{row.vehicle_model}</p>
-          <p>成績：{formatTime(row.elapsed_ms)}</p>
-          <p>平均速度：{Number(row.avg_speed).toFixed(1)} km/h</p>
-        </div>
-      ))}
+              {groupRuns.map((row, index) => (
+                <div
+                  key={row.id}
+                  style={{
+                    border: "1px solid #444",
+                    padding: 12,
+                    marginBottom: 10,
+                    borderRadius: 8,
+                    textAlign: "left",
+                  }}
+                >
+                  <h3>#{index + 1}</h3>
+                  <p>暱稱：{row.nickname}</p>
+                  <p>車款：{row.vehicle_model}</p>
+                  <p>成績：{formatTime(row.elapsed_ms)}</p>
+                  <p>
+                    平均速度：
+                    {row.avg_speed
+                      ? Number(row.avg_speed).toFixed(1)
+                      : "0.0"}{" "}
+                    km/h
+                  </p>
+                  <p>
+                    最高速度：
+                    {row.max_speed
+                      ? Number(row.max_speed).toFixed(1)
+                      : "0.0"}{" "}
+                    km/h
+                  </p>
+                </div>
+              ))}
+            </div>
+          );
+        })}
     </div>
   );
 }

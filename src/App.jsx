@@ -1,13 +1,41 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import RacePage from "./RacePage";
 import Leaderboard from "./Leaderboard";
+import { supabase } from "./supabase";
 
 export default function App() {
   const [page, setPage] = useState("home");
 
+  const [tracks, setTracks] = useState([]);
+  const [selectedTrack, setSelectedTrack] = useState(null);
+
   const [nickname, setNickname] = useState("");
   const [vehicleType, setVehicleType] = useState("速克達");
   const [vehicleModel, setVehicleModel] = useState("");
+
+  useEffect(() => {
+    async function loadTracks() {
+      const { data, error } = await supabase
+        .from("tracks")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("賽道讀取失敗", error);
+        alert("賽道讀取失敗：" + error.message);
+        return;
+      }
+
+      setTracks(data || []);
+
+      if (data && data.length > 0) {
+        setSelectedTrack(data[0]);
+      }
+    }
+
+    loadTracks();
+  }, []);
 
   if (page === "race") {
     return (
@@ -15,6 +43,7 @@ export default function App() {
         nickname={nickname}
         vehicleType={vehicleType}
         vehicleModel={vehicleModel}
+        track={selectedTrack}
       />
     );
   }
@@ -33,6 +62,23 @@ export default function App() {
         onChange={(e) => setNickname(e.target.value)}
         style={{ width: "100%", padding: 12, marginBottom: 14 }}
       />
+
+      <select
+        value={selectedTrack?.id || ""}
+        onChange={(e) => {
+          const track = tracks.find((item) => item.id === e.target.value);
+          setSelectedTrack(track || null);
+        }}
+        style={{ width: "100%", padding: 12, marginBottom: 14 }}
+      >
+        {tracks.length === 0 && <option value="">沒有可用賽道</option>}
+
+        {tracks.map((track) => (
+          <option key={track.id} value={track.id}>
+            {track.name}
+          </option>
+        ))}
+      </select>
 
       <select
         value={vehicleType}
@@ -61,6 +107,12 @@ export default function App() {
             alert("請輸入暱稱與車款");
             return;
           }
+
+          if (!selectedTrack) {
+            alert("請選擇賽道");
+            return;
+          }
+
           setPage("race");
         }}
         style={{ width: "100%", padding: 14, fontSize: 18 }}
