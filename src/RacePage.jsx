@@ -31,15 +31,9 @@ L.Icon.Default.mergeOptions({
 const TEST_MODE = true;
 
 // 起點線
-const startLine = [
-  [track.start_left_lat, track.start_left_lng],
-  [track.start_right_lat, track.start_right_lng],
-];
+
 //終點線
-const endLine = [
-  [track.finish_left_lat, track.finish_left_lng],
-  [track.finish_right_lat, track.finish_right_lng],
-];
+
 
 const MIN_START_SPEED_KMH = 5;
 const MAX_VALID_SPEED_KMH = 180;
@@ -127,6 +121,19 @@ function formatTime(ms) {
 }
 
 export default function RacePage({nickname,vehicleType,vehicleModel,track,})  {
+  
+  //起跑線
+  const startLine = [
+  [track.start_left_lat, track.start_left_lng],
+  [track.start_right_lat, track.start_right_lng],
+];
+  //終點線
+const endLine = [
+  [track.finish_left_lat, track.finish_left_lng],
+  [track.finish_right_lat, track.finish_right_lng],
+];
+
+
   const [status, setStatus] = useState("等待起跑");
   const [direction, setDirection] = useState("偵測中");
   const [timer, setTimer] = useState(0);
