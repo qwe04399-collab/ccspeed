@@ -6,7 +6,7 @@ export default function App() {
   const [page, setPage] = useState("home");
 
   const [nickname, setNickname] = useState("");
-  const [vehicleType, setVehicleType] = useState("機車");
+  const [vehicleType, setVehicleType] = useState("速克達");
   const [vehicleModel, setVehicleModel] = useState("");
 
   if (page === "race") {
@@ -39,16 +39,21 @@ export default function App() {
         onChange={(e) => setVehicleType(e.target.value)}
         style={{ width: "100%", padding: 12, marginBottom: 14 }}
       >
-        <option value="機車">機車</option>
+        <option value="速克達">速克達</option>
+        <option value="檔車">檔車</option>
         <option value="汽車">汽車</option>
       </select>
 
       <input
-        placeholder="輸入車款"
+        placeholder="輸入本次車款，例如：JET SL+ / R15 / GR86"
         value={vehicleModel}
         onChange={(e) => setVehicleModel(e.target.value)}
-        style={{ width: "100%", padding: 12, marginBottom: 20 }}
+        style={{ width: "100%", padding: 12, marginBottom: 10 }}
       />
+
+      <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
+        請輸入本次實際使用車款，車款會顯示於排行榜。
+      </p>
 
       <button
         onClick={() => {
