@@ -265,11 +265,20 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
 
         const crossedStartLine = crossedLine(prevPoint, point, startLine);
         const crossedEndLine = crossedLine(prevPoint, point, endLine);
+        
+        
+        //以下改改開始計時方式
+        //標準  
+        
+        //if (statusRef.current === "等待起跑" &&finalSpeed >= MIN_START_SPEED_KMH) 
+        
+        //五秒版本
 
-        if (
-          statusRef.current === "等待起跑" &&
-          finalSpeed >= MIN_START_SPEED_KMH
-        ) {
+        //if (statusRef.current === "等待起跑") 
+
+        //===================================================================
+        if (statusRef.current === "等待起跑")
+          {
           if (crossedStartLine) {
             setRaceDirection("楠西→大埔");
             startTimeRef.current = Date.now();
@@ -310,8 +319,15 @@ export default function RacePage({ nickname, vehicleType, vehicleModel }) {
           statusRef.current === "計時中" &&
           directionRef.current === "大埔→楠西" &&
           crossedStartLine;
+        //修改計時方式
 
-        if (shouldFinishForward || shouldFinishReverse) {
+        //標準
+        //if (shouldFinishForward || shouldFinishReverse) 
+        
+        //五秒版本
+        //if (statusRef.current === "計時中" &&  Date.now() - startTimeRef.current > 5000)
+
+        if (statusRef.current === "計時中" &&  Date.now() - startTimeRef.current > 5000) {
           const finalTime = Date.now() - startTimeRef.current;
 
           const avg =
