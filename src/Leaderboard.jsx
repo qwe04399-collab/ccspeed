@@ -16,8 +16,6 @@ function formatTime(ms) {
   )}`;
 }
 
-const directions = ["楠西→大埔", "大埔→楠西"];
-
 const vehicleGroups = [
   { key: "速克達", title: "🛵 速克達組" },
   { key: "檔車", title: "🏍 檔車組" },
@@ -25,61 +23,54 @@ const vehicleGroups = [
 ];
 
 export default function Leaderboard() {
-  const [selectedDirection, setSelectedDirection] = useState("楠西→大埔");
-  const [runs, setRuns] = useState([]);
+  const [trackGroups, setTrackGroups] = useState({});
   const [loading, setLoading] = useState(true);
 
-  const loadLeaderboard = async () => {
+  async function loadLeaderboard() {
     setLoading(true);
 
     const { data, error } = await supabase
       .from("runs")
-      .select("*")
-      .eq("direction", selectedDirection)
+      .select(`
+        *,
+        tracks (
+          id,
+          name
+        )
+      `)
       .eq("is_valid", true)
       .order("elapsed_ms", { ascending: true });
 
     if (error) {
       console.error("排行榜讀取失敗", error);
+      alert("排行榜讀取失敗：" + error.message);
       setLoading(false);
       return;
     }
 
-    setRuns(data || []);
+    const grouped = {};
+
+    (data || []).forEach((run) => {
+      const trackName = run.tracks?.name || "未知賽道";
+
+      if (!grouped[trackName]) {
+        grouped[trackName] = [];
+      }
+
+      grouped[trackName].push(run);
+    });
+
+    setTrackGroups(grouped);
     setLoading(false);
-  };
+  }
 
   useEffect(() => {
     loadLeaderboard();
-  }, [selectedDirection]);
+  }, []);
 
   return (
-    <div style={{ maxWidth: 520, margin: "40px auto", padding: 20 }}>
+    <div style={{ maxWidth: 620, margin: "40px auto", padding: 20 }}>
       <h1>🏆 CCSPEED 排行榜</h1>
-
-      <h2>楠西 ↔ 大埔</h2>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-        {directions.map((dir) => (
-          <button
-            key={dir}
-            onClick={() => setSelectedDirection(dir)}
-            style={{
-              flex: 1,
-              padding: 12,
-              fontSize: 16,
-              fontWeight: selectedDirection === dir ? "bold" : "normal",
-              border:
-                selectedDirection === dir
-                  ? "2px solid #fff"
-                  : "1px solid #555",
-              borderRadius: 8,
-            }}
-          >
-            {dir}
-          </button>
-        ))}
-      </div>
 
       <button
         onClick={loadLeaderboard}
@@ -90,52 +81,78 @@ export default function Leaderboard() {
 
       {loading && <p>讀取中...</p>}
 
+      {!loading && Object.keys(trackGroups).length === 0 && (
+        <p>目前沒有成績</p>
+      )}
+
       {!loading &&
-        vehicleGroups.map((group) => {
-          const groupRuns = runs.filter(
-            (row) => row.vehicle_type === group.key
-          );
+        Object.entries(trackGroups).map(([trackName, runs]) => (
+          <div
+            key={trackName}
+            style={{
+              border: "2px solid #555",
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 28,
+            }}
+          >
+            <h2>🏁 {trackName}</h2>
 
-          return (
-            <div key={group.key} style={{ marginBottom: 28 }}>
-              <h2>{group.title}</h2>
+            {["楠西→大埔", "大埔→楠西"].map((direction) => {
+              const directionRuns = runs.filter(
+                (row) => row.direction === direction
+              );
 
-              {groupRuns.length === 0 && <p>目前沒有成績</p>}
+              if (directionRuns.length === 0) return null;
 
-              {groupRuns.map((row, index) => (
-                <div
-                  key={row.id}
-                  style={{
-                    border: "1px solid #444",
-                    padding: 12,
-                    marginBottom: 10,
-                    borderRadius: 8,
-                    textAlign: "left",
-                  }}
-                >
-                  <h3>#{index + 1}</h3>
-                  <p>暱稱：{row.nickname}</p>
-                  <p>車款：{row.vehicle_model}</p>
-                  <p>成績：{formatTime(row.elapsed_ms)}</p>
-                  <p>
-                    平均速度：
-                    {row.avg_speed
-                      ? Number(row.avg_speed).toFixed(1)
-                      : "0.0"}{" "}
-                    km/h
-                  </p>
-                  <p>
-                    最高速度：
-                    {row.max_speed
-                      ? Number(row.max_speed).toFixed(1)
-                      : "0.0"}{" "}
-                    km/h
-                  </p>
+              return (
+                <div key={direction} style={{ marginTop: 18 }}>
+                  <h3>方向：{direction}</h3>
+
+                  {vehicleGroups.map((group) => {
+                    const groupRuns = directionRuns.filter(
+                      (row) => row.vehicle_type === group.key
+                    );
+
+                    if (groupRuns.length === 0) return null;
+
+                    return (
+                      <div key={group.key} style={{ marginTop: 14 }}>
+                        <h4>{group.title}</h4>
+
+                        {groupRuns.map((row, index) => (
+                          <div
+                            key={row.id}
+                            style={{
+                              border: "1px solid #444",
+                              padding: 12,
+                              marginBottom: 10,
+                              borderRadius: 8,
+                              textAlign: "left",
+                            }}
+                          >
+                            <h3>#{index + 1}</h3>
+                            <p>暱稱：{row.nickname}</p>
+                            <p>車款：{row.vehicle_model}</p>
+                            <p>成績：{formatTime(row.elapsed_ms)}</p>
+                            <p>
+                              平均速度：
+                              {Number(row.avg_speed || 0).toFixed(1)} km/h
+                            </p>
+                            <p>
+                              最高速度：
+                              {Number(row.max_speed || 0).toFixed(1)} km/h
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        ))}
     </div>
   );
 }
