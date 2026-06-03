@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 import RacePage from "./RacePage";
 import Leaderboard from "./Leaderboard";
+import AdminPage from "./AdminPage";
 import { supabase } from "./supabase";
+
 
 export default function App() {
   const [page, setPage] = useState("home");
+
+  const path = window.location.pathname;
+
+  if (path === "/ccspeed-control-7281") {
+  return <AdminPage />;
+  }
 
   const [tracks, setTracks] = useState([]);
   const [selectedTrack, setSelectedTrack] = useState(null);
