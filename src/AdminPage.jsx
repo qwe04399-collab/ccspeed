@@ -79,6 +79,29 @@ export default function AdminPage() {
           <h3>{track.name}</h3>
           <p>ID：{track.id}</p>
           <p>啟用：{track.is_active ? "是" : "否"}</p>
+          <button
+            onClick={async () => {
+                const { error } = await supabase
+                    .from("tracks")
+                    .update({
+                    is_active: !track.is_active,
+            })
+            .eq("id", track.id);
+
+            if (error) {
+            alert(error.message);
+            return;
+            }
+
+            loadTracks();
+            }}
+            style={{
+            marginTop: 10,
+            padding: "8px 12px",
+            }}
+            >
+            {track.is_active ? "停用賽道" : "啟用賽道"}
+            </button>
         </div>
       ))}
     </div>
