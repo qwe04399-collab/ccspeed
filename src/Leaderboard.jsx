@@ -22,7 +22,7 @@ const vehicleGroups = [
   { key: "汽車", title: "🚗 汽車組" },
 ];
 
-export default function Leaderboard() {
+export default function Leaderboard({ onBack }) {
   const [trackGroups, setTrackGroups] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -71,6 +71,13 @@ export default function Leaderboard() {
   return (
     <div style={{ maxWidth: 620, margin: "40px auto", padding: 20 }}>
       <h1>🏆 CCSPEED 排行榜</h1>
+
+      <button
+        onClick={onBack}
+        style={{ width: "100%", padding: 12, marginBottom: 12 }}
+      >
+        返回首頁
+      </button>
 
       <button
         onClick={loadLeaderboard}

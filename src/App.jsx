@@ -102,7 +102,7 @@ export default function App() {
   }
 
   if (page === "leaderboard") {
-    return <Leaderboard />;
+    return <Leaderboard onBack={() => setPage("home")} />;
   }
 
   return null;
