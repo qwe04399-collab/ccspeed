@@ -307,8 +307,9 @@ const reverseDirection = `${pointB}→${pointA}`;
             setTimer(0);
             setRaceStatus("計時中");
           } else if (finalSpeed >= MIN_START_SPEED_KMH) {
+            
             if (crossedStartLine) {
-              setRaceDirection(reverseDirection);
+              setRaceDirection(forwardDirection);
               startTimeRef.current = Date.now();
               speedListRef.current = [];
               setTimer(0);
@@ -316,7 +317,7 @@ const reverseDirection = `${pointB}→${pointA}`;
             }
 
             if (crossedEndLine) {
-              setRaceDirection("大埔→楠西");
+              setRaceDirection(reverseDirection);
               startTimeRef.current = Date.now();
               speedListRef.current = [];
               setTimer(0);
@@ -405,7 +406,7 @@ const reverseDirection = `${pointB}→${pointA}`;
 
       <h2>{status}</h2>
       <h3>方向：{direction}</h3>
-      <p>目前模式：{TEST_MODE ? "5秒測試模式" : "正式GPS模式"}</p>
+      <p>{TEST_MODE ? "5秒測試模式" : "GPS正常"}</p>
 
       <div style={{ fontSize: 46, fontWeight: "bold", margin: "18px 0" }}>
         {formatTime(finishTime ?? timer)}
@@ -417,8 +418,8 @@ const reverseDirection = `${pointB}→${pointA}`;
       <hr />
 
       <p>GPS 精度：{gpsAccuracy.toFixed(0)} m</p>
-      <p>楠西線距離：{startDist.toFixed(1)} m</p>
-      <p>大埔線距離：{endDist.toFixed(1)} m</p>
+      <p>{pointA}線距離：{startDist.toFixed(1)} m</p>
+      <p>{pointB}線距離：{endDist.toFixed(1)} m</p>
 
       <button onClick={resetRace} style={{ padding: "10px 16px", margin: 6 }}>
         重新開始
