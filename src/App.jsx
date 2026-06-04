@@ -109,13 +109,15 @@ export default function App() {
     );
   }
 
-  if (page === "leaderboard") {
+if (page === "leaderboard") {
   return (
     <LeaderboardHome
       tracks={tracks}
       onBack={() => setPage("home")}
       onSelectTrack={(track) => {
         setLeaderboardTrack(track);
+        setLeaderboardDirection(null);
+        setLeaderboardVehicleGroup(null);
         setPage("leaderboardTrack");
       }}
     />
@@ -123,12 +125,18 @@ export default function App() {
 }
 
 if (page === "leaderboardTrack") {
+  if (!leaderboardTrack) {
+    setPage("leaderboard");
+    return null;
+  }
+
   return (
     <LeaderboardTrack
       track={leaderboardTrack}
       onBack={() => setPage("leaderboard")}
       onSelectDirection={(direction) => {
         setLeaderboardDirection(direction);
+        setLeaderboardVehicleGroup(null);
         setPage("leaderboardGroup");
       }}
     />
@@ -136,6 +144,11 @@ if (page === "leaderboardTrack") {
 }
 
 if (page === "leaderboardGroup") {
+  if (!leaderboardTrack || !leaderboardDirection) {
+    setPage("leaderboardTrack");
+    return null;
+  }
+
   return (
     <LeaderboardGroup
       track={leaderboardTrack}
@@ -150,6 +163,11 @@ if (page === "leaderboardGroup") {
 }
 
 if (page === "leaderboardResults") {
+  if (!leaderboardTrack || !leaderboardDirection || !leaderboardVehicleGroup) {
+    setPage("leaderboardGroup");
+    return null;
+  }
+
   return (
     <LeaderboardResults
       track={leaderboardTrack}
