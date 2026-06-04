@@ -1,17 +1,23 @@
-import LeaderboardHome from "./pages/LeaderboardHome";
 import { useEffect, useState } from "react";
+
+import { supabase } from "./supabase";
+
 import RacePage from "./RacePage";
 import AdminPage from "./AdminPage";
-import { supabase } from "./supabase";
+
 import HomePage from "./pages/HomePage";
 import RaceSetupPage from "./pages/RaceSetupPage";
+import LeaderboardHome from "./pages/LeaderboardHome";
+import LeaderboardTrack from "./pages/LeaderboardTrack";
+import LeaderboardGroup from "./pages/LeaderboardGroup";
 
 export default function App() {
   const [page, setPage] = useState("home");
 
   const [tracks, setTracks] = useState([]);
   const [selectedTrack, setSelectedTrack] = useState(null);
-
+  const [leaderboardTrack, setLeaderboardTrack] = useState(null);
+  const [leaderboardDirection, setLeaderboardDirection] = useState(null);
   const [nickname, setNickname] = useState("");
   const [vehicleType, setVehicleType] = useState("速克達");
   const [vehicleModel, setVehicleModel] = useState("");
@@ -106,6 +112,33 @@ export default function App() {
     <LeaderboardHome
       tracks={tracks}
       onBack={() => setPage("home")}
+      onSelectTrack={(track) => {
+        setLeaderboardTrack(track);
+        setPage("leaderboardTrack");
+      }}
+    />
+  );
+}
+
+if (page === "leaderboardTrack") {
+  return (
+    <LeaderboardTrack
+      track={leaderboardTrack}
+      onBack={() => setPage("leaderboard")}
+      onSelectDirection={(direction) => {
+        setLeaderboardDirection(direction);
+        setPage("leaderboardGroup");
+      }}
+    />
+  );
+}
+
+if (page === "leaderboardGroup") {
+  return (
+    <LeaderboardGroup
+      track={leaderboardTrack}
+      direction={leaderboardDirection}
+      onBack={() => setPage("leaderboardTrack")}
     />
   );
 }

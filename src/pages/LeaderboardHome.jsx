@@ -1,6 +1,7 @@
 export default function LeaderboardHome({
   tracks,
   onBack,
+  onSelectTrack,
 }) {
   return (
     <div
@@ -30,18 +31,19 @@ export default function LeaderboardHome({
       )}
 
       {tracks.map((track) => (
-        <button
-          key={track.id}
-          style={{
-            width: "100%",
-            padding: 16,
-            marginBottom: 12,
-            fontSize: 18,
-          }}
-        >
-          🏁 {track.name}
-        </button>
-      ))}
+  <button
+    key={track.id}
+    onClick={() => onSelectTrack(track)}
+    style={{
+      width: "100%",
+      padding: 16,
+      marginBottom: 12,
+      fontSize: 18,
+    }}
+  >
+    🏁 {track.name}
+  </button>
+))}
     </div>
   );
 }
