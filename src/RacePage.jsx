@@ -133,6 +133,14 @@ const endLine = [
   [track.finish_right_lat, track.finish_right_lng],
 ];
 
+const trackParts = track.name.split("-");
+
+const pointA = trackParts[0]?.trim() || "起點";
+const pointB = trackParts[1]?.trim() || "終點";
+
+const forwardDirection = `${pointA}→${pointB}`;
+const reverseDirection = `${pointB}→${pointA}`;
+
 
   const [status, setStatus] = useState("等待起跑");
   const [direction, setDirection] = useState("偵測中");
@@ -293,14 +301,14 @@ const endLine = [
         // =======================
         if (statusRef.current === "等待起跑") {
           if (TEST_MODE) {
-            setRaceDirection("楠西→大埔");
+            setRaceDirection(forwardDirection);
             startTimeRef.current = Date.now();
             speedListRef.current = [];
             setTimer(0);
             setRaceStatus("計時中");
           } else if (finalSpeed >= MIN_START_SPEED_KMH) {
             if (crossedStartLine) {
-              setRaceDirection("楠西→大埔");
+              setRaceDirection(reverseDirection);
               startTimeRef.current = Date.now();
               speedListRef.current = [];
               setTimer(0);
@@ -333,12 +341,12 @@ const endLine = [
 
         const shouldFinishForward =
           statusRef.current === "計時中" &&
-          directionRef.current === "楠西→大埔" &&
+          directionRef.current === forwardDirection &&
           crossedEndLine;
 
         const shouldFinishReverse =
           statusRef.current === "計時中" &&
-          directionRef.current === "大埔→楠西" &&
+          directionRef.current === reverseDirection &&
           crossedStartLine;
 
         // =======================
