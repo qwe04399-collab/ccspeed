@@ -1,6 +1,6 @@
+import LeaderboardHome from "./pages/LeaderboardHome";
 import { useEffect, useState } from "react";
 import RacePage from "./RacePage";
-import Leaderboard from "./Leaderboard";
 import AdminPage from "./AdminPage";
 import { supabase } from "./supabase";
 import HomePage from "./pages/HomePage";
@@ -102,8 +102,13 @@ export default function App() {
   }
 
   if (page === "leaderboard") {
-    return <Leaderboard onBack={() => setPage("home")} />;
-  }
+  return (
+    <LeaderboardHome
+      tracks={tracks}
+      onBack={() => setPage("home")}
+    />
+  );
+}
 
   return null;
 }
