@@ -112,6 +112,7 @@ export default function App() {
         vehicleType={vehicleType}
         vehicleModel={vehicleModel}
         track={selectedTrack}
+        onBack={() => setPage("home")}
       />
     );
   }

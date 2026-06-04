@@ -120,7 +120,7 @@ function formatTime(ms) {
   )}.${String(centiseconds).padStart(2, "0")}`;
 }
 
-export default function RacePage({nickname,vehicleType,vehicleModel,track,})  {
+export default function RacePage({nickname,vehicleType,vehicleModel,track,onBack,})  {
   
   //起跑線
   const startLine = [
@@ -420,7 +420,11 @@ const reverseDirection = `${pointB}→${pointA}`;
       <p>GPS 精度：{gpsAccuracy.toFixed(0)} m</p>
       <p>{pointA}線距離：{startDist.toFixed(1)} m</p>
       <p>{pointB}線距離：{endDist.toFixed(1)} m</p>
-
+      
+      <button onClick={onBack} style={{ padding: "10px 16px", margin: 6 }}>
+      返回首頁
+      </button>
+      
       <button onClick={resetRace} style={{ padding: "10px 16px", margin: 6 }}>
         重新開始
       </button>
