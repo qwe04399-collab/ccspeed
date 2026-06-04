@@ -398,7 +398,7 @@ const reverseDirection = `${pointB}→${pointA}`;
         navigator.geolocation.clearWatch(watchRef.current);
       }
     };
-  }, [nickname, vehicleType, vehicleModel]);
+  }, [nickname, vehicleType, vehicleModel, track]);
 
   return (
     <div style={{ textAlign: "center", padding: 16, fontFamily: "Arial" }}>
