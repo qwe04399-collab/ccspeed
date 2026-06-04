@@ -3,6 +3,13 @@ export default function LeaderboardTrack({
   onBack,
   onSelectDirection,
 }) {
+  const trackName = track?.name || "";
+
+  const parts = trackName.split("-");
+
+  const pointA = parts[0]?.trim() || "起點";
+  const pointB = parts[1]?.trim() || "終點";
+
   return (
     <div
       style={{
@@ -11,7 +18,7 @@ export default function LeaderboardTrack({
         padding: 20,
       }}
     >
-      <h1>🏁 {track?.name}</h1>
+      <h1>🏁 {trackName}</h1>
 
       <button
         onClick={onBack}
@@ -25,26 +32,30 @@ export default function LeaderboardTrack({
       </button>
 
       <button
-        onClick={() => onSelectDirection("楠西→大埔")}
+        onClick={() =>
+          onSelectDirection(`${pointA}→${pointB}`)
+        }
         style={{
           width: "100%",
-          padding: 16,
-          marginBottom: 12,
-          fontSize: 18,
+          padding: 20,
+          marginBottom: 16,
+          fontSize: 24,
         }}
       >
-        楠西 → 大埔
+        {pointA} → {pointB}
       </button>
 
       <button
-        onClick={() => onSelectDirection("大埔→楠西")}
+        onClick={() =>
+          onSelectDirection(`${pointB}→${pointA}`)
+        }
         style={{
           width: "100%",
-          padding: 16,
-          fontSize: 18,
+          padding: 20,
+          fontSize: 24,
         }}
       >
-        大埔 → 楠西
+        {pointB} → {pointA}
       </button>
     </div>
   );
