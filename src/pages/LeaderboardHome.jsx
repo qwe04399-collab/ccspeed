@@ -1,17 +1,72 @@
-export default function LeaderboardHome({
-  tracks,
+import { useEffect, useState } from "react";
+import { supabase } from "../supabase";
+
+function formatTime(ms) {
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  const centiseconds = Math.floor((ms % 1000) / 10);
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+    2,
+    "0"
+  )}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+export default function LeaderboardResults({
+  track,
+  direction,
+  vehicleGroup,
   onBack,
-  onSelectTrack,
 }) {
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadResults();
+  }, []);
+
+  async function loadResults() {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("runs")
+      .select("*")
+      .eq("track_id", track.id)
+      .eq("direction", direction)
+      .eq("vehicle_type", vehicleGroup)
+      .eq("is_valid", true)
+      .order("elapsed_ms", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert(error.message);
+      setLoading(false);
+      return;
+    }
+
+    setResults(data || []);
+    setLoading(false);
+  }
+
   return (
     <div
       style={{
-        maxWidth: 500,
+        maxWidth: 600,
         margin: "40px auto",
         padding: 20,
       }}
     >
       <h1>🏆 排行榜</h1>
+
+      <h2>{track?.name}</h2>
+
+      <p>方向：{direction}</p>
+
+      <p>組別：{vehicleGroup}</p>
 
       <button
         onClick={onBack}
@@ -21,29 +76,47 @@ export default function LeaderboardHome({
           marginBottom: 20,
         }}
       >
-        返回首頁
+        返回組別選擇
       </button>
 
-      <h2>選擇賽道</h2>
+      {loading && <p>讀取中...</p>}
 
-      {tracks.length === 0 && (
-        <p>目前沒有可用賽道</p>
+      {!loading && results.length === 0 && (
+        <p>目前沒有成績</p>
       )}
 
-      {tracks.map((track) => (
-  <button
-    key={track.id}
-    onClick={() => onSelectTrack(track)}
-    style={{
-      width: "100%",
-      padding: 16,
-      marginBottom: 12,
-      fontSize: 18,
-    }}
-  >
-    🏁 {track.name}
-  </button>
-))}
+      {!loading &&
+        results.map((row, index) => (
+          <div
+            key={row.id}
+            style={{
+              border: "1px solid #444",
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 10,
+            }}
+          >
+            <h3>#{index + 1}</h3>
+
+            <p>暱稱：{row.nickname}</p>
+
+            <p>車款：{row.vehicle_model}</p>
+
+            <p>成績：{formatTime(row.elapsed_ms)}</p>
+
+            <p>
+              平均速度：
+              {Number(row.avg_speed || 0).toFixed(1)}
+              km/h
+            </p>
+
+            <p>
+              最高速度：
+              {Number(row.max_speed || 0).toFixed(1)}
+              km/h
+            </p>
+          </div>
+        ))}
     </div>
   );
 }

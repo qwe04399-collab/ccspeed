@@ -9,6 +9,7 @@ import HomePage from "./pages/HomePage";
 import RaceSetupPage from "./pages/RaceSetupPage";
 import LeaderboardHome from "./pages/LeaderboardHome";
 import LeaderboardTrack from "./pages/LeaderboardTrack";
+import LeaderboardResults from "./pages/LeaderboardResults";
 import LeaderboardGroup from "./pages/LeaderboardGroup";
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [leaderboardTrack, setLeaderboardTrack] = useState(null);
   const [leaderboardDirection, setLeaderboardDirection] = useState(null);
+  const [leaderboardVehicleGroup, setLeaderboardVehicleGroup] = useState(null);
   const [nickname, setNickname] = useState("");
   const [vehicleType, setVehicleType] = useState("速克達");
   const [vehicleModel, setVehicleModel] = useState("");
@@ -139,6 +141,21 @@ if (page === "leaderboardGroup") {
       track={leaderboardTrack}
       direction={leaderboardDirection}
       onBack={() => setPage("leaderboardTrack")}
+      onSelectGroup={(group) => {
+        setLeaderboardVehicleGroup(group);
+        setPage("leaderboardResults");
+      }}
+    />
+  );
+}
+
+if (page === "leaderboardResults") {
+  return (
+    <LeaderboardResults
+      track={leaderboardTrack}
+      direction={leaderboardDirection}
+      vehicleGroup={leaderboardVehicleGroup}
+      onBack={() => setPage("leaderboardGroup")}
     />
   );
 }
