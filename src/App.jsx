@@ -9,17 +9,19 @@ import HomePage from "./pages/HomePage";
 import RaceSetupPage from "./pages/RaceSetupPage";
 import LeaderboardHome from "./pages/LeaderboardHome";
 import LeaderboardTrack from "./pages/LeaderboardTrack";
-import LeaderboardResults from "./pages/LeaderboardResults";
 import LeaderboardGroup from "./pages/LeaderboardGroup";
+import LeaderboardResults from "./pages/LeaderboardResults";
 
 export default function App() {
   const [page, setPage] = useState("home");
 
   const [tracks, setTracks] = useState([]);
   const [selectedTrack, setSelectedTrack] = useState(null);
+
   const [leaderboardTrack, setLeaderboardTrack] = useState(null);
   const [leaderboardDirection, setLeaderboardDirection] = useState(null);
   const [leaderboardVehicleGroup, setLeaderboardVehicleGroup] = useState(null);
+
   const [nickname, setNickname] = useState("");
   const [vehicleType, setVehicleType] = useState("速克達");
   const [vehicleModel, setVehicleModel] = useState("");
@@ -58,7 +60,12 @@ export default function App() {
     return (
       <HomePage
         onStartRace={() => setPage("setup")}
-        onLeaderboard={() => setPage("leaderboard")}
+        onLeaderboard={() => {
+          setLeaderboardTrack(null);
+          setLeaderboardDirection(null);
+          setLeaderboardVehicleGroup(null);
+          setPage("leaderboard");
+        }}
       />
     );
   }
@@ -109,74 +116,104 @@ export default function App() {
     );
   }
 
-if (page === "leaderboard") {
-  return (
-    <LeaderboardHome
-      tracks={tracks}
-      onBack={() => setPage("home")}
-      onSelectTrack={(track) => {
-        setLeaderboardTrack(track);
-        setLeaderboardDirection(null);
-        setLeaderboardVehicleGroup(null);
-        setPage("leaderboardTrack");
-      }}
-    />
-  );
-}
-
-if (page === "leaderboardTrack") {
-  if (!leaderboardTrack) {
-    setPage("leaderboard");
-    return null;
+  if (page === "leaderboard") {
+    return (
+      <LeaderboardHome
+        tracks={tracks}
+        onBack={() => setPage("home")}
+        onSelectTrack={(track) => {
+          setLeaderboardTrack(track);
+          setLeaderboardDirection(null);
+          setLeaderboardVehicleGroup(null);
+          setPage("leaderboardTrack");
+        }}
+      />
+    );
   }
 
-  return (
-    <LeaderboardTrack
-      track={leaderboardTrack}
-      onBack={() => setPage("leaderboard")}
-      onSelectDirection={(direction) => {
-        setLeaderboardDirection(direction);
-        setLeaderboardVehicleGroup(null);
-        setPage("leaderboardGroup");
-      }}
-    />
-  );
-}
+  if (page === "leaderboardTrack") {
+    if (!leaderboardTrack) {
+      return (
+        <LeaderboardHome
+          tracks={tracks}
+          onBack={() => setPage("home")}
+          onSelectTrack={(track) => {
+            setLeaderboardTrack(track);
+            setLeaderboardDirection(null);
+            setLeaderboardVehicleGroup(null);
+            setPage("leaderboardTrack");
+          }}
+        />
+      );
+    }
 
-if (page === "leaderboardGroup") {
-  if (!leaderboardTrack || !leaderboardDirection) {
-    setPage("leaderboardTrack");
-    return null;
+    return (
+      <LeaderboardTrack
+        track={leaderboardTrack}
+        onBack={() => setPage("leaderboard")}
+        onSelectDirection={(direction) => {
+          setLeaderboardDirection(direction);
+          setLeaderboardVehicleGroup(null);
+          setPage("leaderboardGroup");
+        }}
+      />
+    );
   }
 
-  return (
-    <LeaderboardGroup
-      track={leaderboardTrack}
-      direction={leaderboardDirection}
-      onBack={() => setPage("leaderboardTrack")}
-      onSelectGroup={(group) => {
-        setLeaderboardVehicleGroup(group);
-        setPage("leaderboardResults");
-      }}
-    />
-  );
-}
+  if (page === "leaderboardGroup") {
+    if (!leaderboardTrack || !leaderboardDirection) {
+      return (
+        <LeaderboardHome
+          tracks={tracks}
+          onBack={() => setPage("home")}
+          onSelectTrack={(track) => {
+            setLeaderboardTrack(track);
+            setLeaderboardDirection(null);
+            setLeaderboardVehicleGroup(null);
+            setPage("leaderboardTrack");
+          }}
+        />
+      );
+    }
 
-if (page === "leaderboardResults") {
-  if (!leaderboardTrack || !leaderboardDirection || !leaderboardVehicleGroup) {
-    setPage("leaderboardGroup");
-    return null;
+    return (
+      <LeaderboardGroup
+        track={leaderboardTrack}
+        direction={leaderboardDirection}
+        onBack={() => setPage("leaderboardTrack")}
+        onSelectGroup={(group) => {
+          setLeaderboardVehicleGroup(group);
+          setPage("leaderboardResults");
+        }}
+      />
+    );
   }
 
-  return (
-    <LeaderboardResults
-      track={leaderboardTrack}
-      direction={leaderboardDirection}
-      vehicleGroup={leaderboardVehicleGroup}
-      onBack={() => setPage("leaderboardGroup")}
-    />
-  );
-}
+  if (page === "leaderboardResults") {
+    if (!leaderboardTrack || !leaderboardDirection || !leaderboardVehicleGroup) {
+      return (
+        <LeaderboardHome
+          tracks={tracks}
+          onBack={() => setPage("home")}
+          onSelectTrack={(track) => {
+            setLeaderboardTrack(track);
+            setLeaderboardDirection(null);
+            setLeaderboardVehicleGroup(null);
+            setPage("leaderboardTrack");
+          }}
+        />
+      );
+    }
+
+    return (
+      <LeaderboardResults
+        track={leaderboardTrack}
+        direction={leaderboardDirection}
+        vehicleGroup={leaderboardVehicleGroup}
+        onBack={() => setPage("leaderboardGroup")}
+      />
+    );
+  }
 
   return null;
 }
