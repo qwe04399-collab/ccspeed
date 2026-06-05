@@ -206,15 +206,17 @@ export default function AdminPage() {
 
           {renderInput(track, "name", "賽道名稱")}
           
-          {renderInput(track, "start_name", "起點名稱")}
-          {renderInput(track, "finish_name", "終點名稱")}
-
+          
           <h4>🔴 起點線</h4>
+          
+          {renderInput(track, "finish_name", "起點名稱")}
 
           {renderInput(track, "startLeftText", "起點左")}
           {renderInput(track, "startRightText", "起點右")}
 
           <h4>🟢 終點線</h4>
+          
+          {renderInput(track, "start_name", "終點名稱")}
 
           {renderInput(track, "finishLeftText", "終點左")}
           {renderInput(track, "finishRightText", "終點右")}
