@@ -133,10 +133,8 @@ const endLine = [
   [track.finish_right_lat, track.finish_right_lng],
 ];
 
-const trackParts = track.name.split("-");
-
-const pointA = trackParts[0]?.trim() || "起點";
-const pointB = trackParts[1]?.trim() || "終點";
+const pointA = track.start_name || "起點";
+const pointB = track.finish_name || "終點";
 
 const forwardDirection = `${pointA}→${pointB}`;
 const reverseDirection = `${pointB}→${pointA}`;
