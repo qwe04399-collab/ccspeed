@@ -76,6 +76,9 @@ export default function AdminPage() {
       .update({
         name: track.name,
 
+        start_name: track.start_name,
+        finish_name: track.finish_name,
+
         start_left_lat: startLeft.lat,
         start_left_lng: startLeft.lng,
         start_right_lat: startRight.lat,
@@ -202,6 +205,9 @@ export default function AdminPage() {
           <p style={{ fontSize: 12, color: "#999" }}>ID：{track.id}</p>
 
           {renderInput(track, "name", "賽道名稱")}
+          
+          {renderInput(track, "start_name", "起點名稱")}
+          {renderInput(track, "finish_name", "終點名稱")}
 
           <h4>🔴 起點線</h4>
 
