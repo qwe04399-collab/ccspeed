@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabase";
 
 import {
@@ -120,24 +120,38 @@ function formatTime(ms) {
   )}.${String(centiseconds).padStart(2, "0")}`;
 }
 
-export default function RacePage({nickname,vehicleType,vehicleModel,track,onBack,})  {
-  
-  //起跑線
-  const startLine = [
-  [track.start_left_lat, track.start_left_lng],
-  [track.start_right_lat, track.start_right_lng],
-];
-  //終點線
-const endLine = [
-  [track.finish_left_lat, track.finish_left_lng],
-  [track.finish_right_lat, track.finish_right_lng],
-];
+export default function RacePage({ nickname, vehicleType, vehicleModel, track, onBack }) {
+  const startLine = useMemo(
+    () => [
+      [track.start_left_lat, track.start_left_lng],
+      [track.start_right_lat, track.start_right_lng],
+    ],
+    [
+      track.start_left_lat,
+      track.start_left_lng,
+      track.start_right_lat,
+      track.start_right_lng,
+    ]
+  );
 
-const pointA = track.start_name || "起點";
-const pointB = track.finish_name || "終點";
+  const endLine = useMemo(
+    () => [
+      [track.finish_left_lat, track.finish_left_lng],
+      [track.finish_right_lat, track.finish_right_lng],
+    ],
+    [
+      track.finish_left_lat,
+      track.finish_left_lng,
+      track.finish_right_lat,
+      track.finish_right_lng,
+    ]
+  );
 
-const forwardDirection = `${pointA}→${pointB}`;
-const reverseDirection = `${pointB}→${pointA}`;
+  const pointA = track.start_name || "起點";
+  const pointB = track.finish_name || "終點";
+
+  const forwardDirection = useMemo(() => `${pointA}→${pointB}`, [pointA, pointB]);
+  const reverseDirection = useMemo(() => `${pointB}→${pointA}`, [pointA, pointB]);
 
 
   const [status, setStatus] = useState("等待起跑");
@@ -187,7 +201,7 @@ const reverseDirection = `${pointB}→${pointA}`;
     return () => clearInterval(interval);
   }, []);
 
-  async function saveResult(finalTime, avg) {
+  const saveResult = useCallback(async (finalTime, avg) => {
     if (savedRef.current) return;
     savedRef.current = true;
 
@@ -212,7 +226,7 @@ const reverseDirection = `${pointB}→${pointA}`;
     } else {
       alert("🏆 成績已儲存到 runs");
     }
-  }
+  }, [nickname, track.id, track.name, vehicleType, vehicleModel]);
 
   function resetRace() {
     setRaceStatus("等待起跑");
@@ -396,7 +410,17 @@ const reverseDirection = `${pointB}→${pointA}`;
         navigator.geolocation.clearWatch(watchRef.current);
       }
     };
-  }, [nickname, vehicleType, vehicleModel, track]);
+  }, [
+    endLine,
+    forwardDirection,
+    nickname,
+    reverseDirection,
+    saveResult,
+    startLine,
+    track,
+    vehicleModel,
+    vehicleType,
+  ]);
 
   return (
     <div style={{ textAlign: "center", padding: 16, fontFamily: "Arial" }}>
@@ -416,8 +440,8 @@ const reverseDirection = `${pointB}→${pointA}`;
       <hr />
 
       <p>GPS 精度：{gpsAccuracy.toFixed(0)} m</p>
-      <p>{pointA}線距離：{startDist.toFixed(1)} m</p>
-      <p>{pointB}線距離：{endDist.toFixed(1)} m</p>
+      <p>起點({pointA})：{startDist.toFixed(1)} m</p>
+      <p>終點({pointB})：{endDist.toFixed(1)} m</p>
       
       <button onClick={onBack} style={{ padding: "10px 16px", margin: 6 }}>
       返回首頁

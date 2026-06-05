@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
 
 export default function AdminPage() {
   const [tracks, setTracks] = useState([]);
   const [name, setName] = useState("");
 
-  async function loadTracks() {
+  const loadTracks = useCallback(async () => {
     const { data, error } = await supabase
       .from("tracks")
       .select("*")
@@ -41,7 +41,7 @@ export default function AdminPage() {
             : "",
       }))
     );
-  }
+  }, []);
 
   async function addTrack() {
     if (!name.trim()) {
@@ -166,8 +166,12 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    loadTracks();
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      loadTracks();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadTracks]);
 
   return (
     <div style={{ maxWidth: 760, margin: "40px auto", padding: 20 }}>
