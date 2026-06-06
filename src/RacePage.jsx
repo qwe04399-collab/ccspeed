@@ -110,17 +110,27 @@ function crossedLine(prev, curr, line) {
 }
 
 function formatTime(ms) {
-  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
   const seconds = Math.floor((ms % 60000) / 1000);
   const centiseconds = Math.floor((ms % 1000) / 10);
 
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
     2,
     "0"
-  )}.${String(centiseconds).padStart(2, "0")}`;
+  )}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(
+    2,
+    "0"
+  )}`;
 }
 
-export default function RacePage({ nickname, vehicleType, vehicleModel, track, onBack }) {
+export default function RacePage({
+  nickname,
+  vehicleType,
+  vehicleModel,
+  track,
+  onBack,
+}) {
   const startLine = useMemo(
     () => [
       [track.start_left_lat, track.start_left_lng],
@@ -150,6 +160,10 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
   const pointA = track.start_name || "起點";
   const pointB = track.finish_name || "終點";
 
+  const hasValidTrackLines =
+    startLine.flat().every((value) => Number.isFinite(Number(value))) &&
+    endLine.flat().every((value) => Number.isFinite(Number(value)));
+
   const forwardDirection = useMemo(() => `${pointA}→${pointB}`, [pointA, pointB]);
   const reverseDirection = useMemo(() => `${pointB}→${pointA}`, [pointA, pointB]);
 
@@ -178,6 +192,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
   const lastTimeRef = useRef(null);
 
   const speedRef = useRef(0);
+  const maxSpeedRef = useRef(0);
   const speedListRef = useRef([]);
   const savedRef = useRef(false);
 
@@ -215,8 +230,12 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
         vehicle_model: vehicleModel,
         elapsed_ms: finalTime,
         avg_speed: avg,
-        max_speed: speedRef.current,
+        max_speed: maxSpeedRef.current,
+        start_time: startTimeRef.current
+          ? new Date(startTimeRef.current).toISOString()
+          : null,
         finish_time: new Date().toISOString(),
+        end_time: new Date().toISOString(),
       },
     ]);
 
@@ -243,11 +262,17 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
     lastPointRef.current = null;
     lastTimeRef.current = null;
     speedRef.current = 0;
+    maxSpeedRef.current = 0;
     speedListRef.current = [];
     savedRef.current = false;
   }
 
   useEffect(() => {
+    if (!hasValidTrackLines) {
+      alert("此賽道尚未設定完整起點線與終點線");
+      return;
+    }
+
     if (!navigator.geolocation) {
       alert("此裝置不支援 GPS 定位");
       return;
@@ -293,6 +318,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
         }
 
         speedRef.current = finalSpeed;
+        maxSpeedRef.current = Math.max(maxSpeedRef.current, finalSpeed);
         setSpeed(finalSpeed);
 
         setPath((prev) => [...prev, point]);
@@ -413,6 +439,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
   }, [
     endLine,
     forwardDirection,
+    hasValidTrackLines,
     nickname,
     reverseDirection,
     saveResult,
@@ -425,6 +452,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
   return (
     <div style={{ textAlign: "center", padding: 16, fontFamily: "Arial" }}>
       <h1>🏁 CCSPEED</h1>
+      <h2>{track.name}</h2>
 
       <h2>{status}</h2>
       <h3>方向：{direction}</h3>
@@ -439,7 +467,10 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
 
       <hr />
 
-      <p>GPS 精度：{gpsAccuracy.toFixed(0)} m</p>
+      <p>
+      GPS 精度：{gpsAccuracy.toFixed(0)} m　
+      {gpsAccuracy <= MAX_GPS_ACCURACY_M ? "✅ 可計時" : "⚠️ GPS不穩"}
+      </p>
       <p>起點({pointA})：{startDist.toFixed(1)} m</p>
       <p>終點({pointB})：{endDist.toFixed(1)} m</p>
       
@@ -500,6 +531,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
           <h1>{formatTime(finishTime)}</h1>
           <h3>方向：{direction}</h3>
           <h3>平均速度：{avgSpeed.toFixed(1)} km/h</h3>
+          <h3>最高速度：{maxSpeedRef.current.toFixed(1)} km/h</h3>
         </>
       )}
     </div>

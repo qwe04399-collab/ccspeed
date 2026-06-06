@@ -38,7 +38,6 @@ export default function LeaderboardResults({
         .eq("track_id", track.id)
         .eq("direction", direction)
         .eq("vehicle_type", vehicleGroup)
-        .eq("is_valid", true)
         .order("elapsed_ms", { ascending: true });
 
       if (error) {

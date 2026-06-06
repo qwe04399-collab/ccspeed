@@ -71,6 +71,11 @@ export default function AdminPage() {
     const finishLeft = parseCoordinate(track.finishLeftText);
     const finishRight = parseCoordinate(track.finishRightText);
 
+    if (!startLeft || !startRight || !finishLeft || !finishRight) {
+      alert("請確認起點左/右、終點左/右格式皆為：緯度,經度");
+      return;
+    }
+
     const { error } = await supabase
       .from("tracks")
       .update({
@@ -117,30 +122,25 @@ export default function AdminPage() {
 
   function parseCoordinate(text) {
     if (!text) {
-      return {
-        lat: null,
-        lng: null,
-      };
+      return null;
     }
 
     const cleaned = text.trim().replace(/\s+/g, "");
     const parts = cleaned.split(",");
 
     if (parts.length !== 2) {
-      return {
-        lat: null,
-        lng: null,
-      };
+      return null;
     }
 
     const lat = Number(parts[0]);
     const lng = Number(parts[1]);
 
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
-      return {
-        lat: null,
-        lng: null,
-      };
+      return null;
+    }
+
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return null;
     }
 
     return {
@@ -213,14 +213,14 @@ export default function AdminPage() {
           
           <h4>🔴 起點線</h4>
           
-          {renderInput(track, "finish_name", "起點名稱")}
+          {renderInput(track, "start_name", "起點名稱")}
 
           {renderInput(track, "startLeftText", "起點左")}
           {renderInput(track, "startRightText", "起點右")}
 
           <h4>🟢 終點線</h4>
           
-          {renderInput(track, "start_name", "終點名稱")}
+          {renderInput(track, "finish_name", "終點名稱")}
 
           {renderInput(track, "finishLeftText", "終點左")}
           {renderInput(track, "finishRightText", "終點右")}
