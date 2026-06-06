@@ -3,12 +3,12 @@ export default function LeaderboardTrack({
   onBack,
   onSelectDirection,
 }) {
-  const trackName = track?.name || "";
+  const trackName = track?.name || "未命名賽道";
+  const startName = track?.start_name?.trim() || "起點";
+  const finishName = track?.finish_name?.trim() || "終點";
 
-  const parts = trackName.split("-");
-
-  const pointA = parts[0]?.trim() || "起點";
-  const pointB = parts[1]?.trim() || "終點";
+  const forwardDirection = `${startName}→${finishName}`;
+  const reverseDirection = `${finishName}→${startName}`;
 
   return (
     <div
@@ -32,9 +32,7 @@ export default function LeaderboardTrack({
       </button>
 
       <button
-        onClick={() =>
-          onSelectDirection(`${pointA}→${pointB}`)
-        }
+        onClick={() => onSelectDirection(forwardDirection)}
         style={{
           width: "100%",
           padding: 20,
@@ -42,20 +40,18 @@ export default function LeaderboardTrack({
           fontSize: 24,
         }}
       >
-        {pointA} → {pointB}
+        {startName} → {finishName}
       </button>
 
       <button
-        onClick={() =>
-          onSelectDirection(`${pointB}→${pointA}`)
-        }
+        onClick={() => onSelectDirection(reverseDirection)}
         style={{
           width: "100%",
           padding: 20,
           fontSize: 24,
         }}
       >
-        {pointB} → {pointA}
+        {finishName} → {startName}
       </button>
     </div>
   );

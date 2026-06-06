@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 
 function formatTime(ms) {
@@ -31,6 +31,21 @@ export default function LeaderboardResults({
 }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const displayDirection = useMemo(() => {
+    const startName = track?.start_name?.trim() || "起點";
+    const finishName = track?.finish_name?.trim() || "終點";
+
+    if (direction === `${startName}→${finishName}`) {
+      return `${startName} → ${finishName}`;
+    }
+
+    if (direction === `${finishName}→${startName}`) {
+      return `${finishName} → ${startName}`;
+    }
+
+    return direction || "未選擇";
+  }, [track, direction]);
 
   useEffect(() => {
     async function loadResults() {
@@ -69,7 +84,7 @@ export default function LeaderboardResults({
       <h1>🏆 排行榜</h1>
 
       <h2>{track?.name || "未選擇賽道"}</h2>
-      <p>方向：{direction || "未選擇"}</p>
+      <p>方向：{displayDirection}</p>
       <p>組別：{vehicleGroup || "未選擇"}</p>
 
       <button
