@@ -16,6 +16,13 @@ function formatTime(ms) {
   )}`;
 }
 
+function rankLabel(index) {
+  if (index === 0) return "🥇 第 1 名";
+  if (index === 1) return "🥈 第 2 名";
+  if (index === 2) return "🥉 第 3 名";
+  return `#${index + 1}`;
+}
+
 export default function LeaderboardResults({
   track,
   direction,
@@ -27,7 +34,10 @@ export default function LeaderboardResults({
 
   useEffect(() => {
     async function loadResults() {
+      setLoading(true);
+
       if (!track || !direction || !vehicleGroup) {
+        setResults([]);
         setLoading(false);
         return;
       }
@@ -84,10 +94,10 @@ export default function LeaderboardResults({
               marginBottom: 10,
             }}
           >
-            <h3>#{index + 1}</h3>
+            <h3>{rankLabel(index)}</h3>
             <p>暱稱：{row.nickname}</p>
-            <p>車款：{row.vehicle_model}</p>
-            <p>成績：{formatTime(row.elapsed_ms)}</p>
+            <p>車款：{row.vehicle_model || "未填寫"}</p>
+            <p>成績：{formatTime(row.elapsed_ms || 0)}</p>
             <p>平均速度：{Number(row.avg_speed || 0).toFixed(1)} km/h</p>
             <p>最高速度：{Number(row.max_speed || 0).toFixed(1)} km/h</p>
           </div>
