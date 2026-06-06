@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "./supabase";
 
 import {
   MapContainer,
@@ -119,7 +120,7 @@ function formatTime(ms) {
   )}.${String(centiseconds).padStart(2, "0")}`;
 }
 
-export default function RacePage({ vehicleType, track, onBack, onFinish }) {
+export default function RacePage({ nickname, vehicleType, vehicleModel, track, onBack }) {
   const startLine = useMemo(
     () => [
       [track.start_left_lat, track.start_left_lng],
@@ -167,6 +168,10 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
   const [currentPoint, setCurrentPoint] = useState(null);
   const [path, setPath] = useState([]);
   const [showMap, setShowMap] = useState(true);
+  const [backgroundWarning, setBackgroundWarning] = useState(
+    "挑戰期間請保持此頁面開啟，請勿鎖螢幕或切換到其他 App。"
+  );
+  const [backgroundCount, setBackgroundCount] = useState(0);
 
   const watchRef = useRef(null);
   const statusRef = useRef("等待起跑");
@@ -177,9 +182,9 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
   const lastTimeRef = useRef(null);
 
   const speedRef = useRef(0);
-  const maxSpeedRef = useRef(0);
   const speedListRef = useRef([]);
-  const finishedRef = useRef(false);
+  const savedRef = useRef(false);
+  const invalidRaceRef = useRef(false);
 
   const setRaceStatus = (nextStatus) => {
     statusRef.current = nextStatus;
@@ -201,6 +206,52 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && statusRef.current === "計時中") {
+        invalidRaceRef.current = true;
+        setBackgroundCount((count) => count + 1);
+        setBackgroundWarning(
+          "⚠️ 挑戰中偵測到切換背景或鎖螢幕，為避免 GPS 中斷，本次挑戰已中斷，請重新開始。"
+        );
+        setRaceStatus("挑戰中斷");
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  const saveResult = useCallback(async (finalTime, avg) => {
+    if (savedRef.current) return;
+    savedRef.current = true;
+
+    const { error } = await supabase.from("runs").insert([
+      {
+        nickname,
+        track_id: track.id,
+        direction: directionRef.current,
+        track_name: track.name,
+        vehicle_type: vehicleType,
+        vehicle_model: vehicleModel,
+        elapsed_ms: finalTime,
+        avg_speed: avg,
+        max_speed: speedRef.current,
+        finish_time: new Date().toISOString(),
+      },
+    ]);
+
+    if (error) {
+      console.error("資料庫寫入失敗", error);
+      alert("資料庫寫入失敗：" + error.message);
+    } else {
+      alert("🏆 成績已儲存到 runs");
+    }
+  }, [nickname, track.id, track.name, vehicleType, vehicleModel]);
+
   function resetRace() {
     setRaceStatus("等待起跑");
     setRaceDirection("偵測中");
@@ -217,8 +268,10 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
     lastTimeRef.current = null;
     speedRef.current = 0;
     speedListRef.current = [];
-    maxSpeedRef.current = 0;
-    finishedRef.current = false;
+    savedRef.current = false;
+    invalidRaceRef.current = false;
+    setBackgroundCount(0);
+    setBackgroundWarning("挑戰期間請保持此頁面開啟，請勿鎖螢幕或切換到其他 App。");
   }
 
   useEffect(() => {
@@ -235,6 +288,12 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
         const accuracy = pos.coords.accuracy || 999;
         setGpsAccuracy(accuracy);
         setCurrentPoint(point);
+
+        if (invalidRaceRef.current) {
+          lastPointRef.current = point;
+          lastTimeRef.current = now;
+          return;
+        }
 
         const prevPoint = lastPointRef.current;
 
@@ -267,9 +326,6 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
         }
 
         speedRef.current = finalSpeed;
-        if (finalSpeed > maxSpeedRef.current && finalSpeed < MAX_VALID_SPEED_KMH) {
-          maxSpeedRef.current = finalSpeed;
-        }
         setSpeed(finalSpeed);
 
         setPath((prev) => [...prev, point]);
@@ -352,11 +408,8 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
         const shouldFinishOfficial =
           !TEST_MODE && (shouldFinishForward || shouldFinishReverse);
 
-        if ((shouldFinishTest || shouldFinishOfficial) && !finishedRef.current) {
-          finishedRef.current = true;
-
+        if (!invalidRaceRef.current && (shouldFinishTest || shouldFinishOfficial)) {
           const finalTime = Date.now() - startTimeRef.current;
-          const endTime = new Date().toISOString();
 
           const avg =
             speedListRef.current.length > 0
@@ -368,23 +421,7 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
           setAvgSpeed(avg);
           setRaceStatus("完賽");
 
-          if (watchRef.current) {
-            navigator.geolocation.clearWatch(watchRef.current);
-            watchRef.current = null;
-          }
-
-          onFinish({
-            track,
-            vehicleType,
-            direction: directionRef.current,
-            elapsedMs: finalTime,
-            avgSpeed: avg,
-            maxSpeed: maxSpeedRef.current,
-            startTime: startTimeRef.current
-              ? new Date(startTimeRef.current).toISOString()
-              : null,
-            endTime,
-          });
+          await saveResult(finalTime, avg);
         }
 
         lastPointRef.current = point;
@@ -409,10 +446,12 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
   }, [
     endLine,
     forwardDirection,
-    onFinish,
+    nickname,
     reverseDirection,
+    saveResult,
     startLine,
     track,
+    vehicleModel,
     vehicleType,
   ]);
 
@@ -424,6 +463,25 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
       <h3>方向：{direction}</h3>
       <p>{TEST_MODE ? "5秒測試模式" : "GPS正常"}</p>
 
+      <div
+        style={{
+          margin: "12px auto",
+          padding: "12px 14px",
+          maxWidth: 520,
+          borderRadius: 12,
+          background: status === "挑戰中斷" ? "#3b1212" : "#1f2937",
+          color: "#fff",
+          lineHeight: 1.5,
+        }}
+      >
+        <strong>📱 前景定位提醒</strong>
+        <br />
+        {backgroundWarning}
+        {backgroundCount > 0 && (
+          <div style={{ marginTop: 6 }}>切換背景次數：{backgroundCount}</div>
+        )}
+      </div>
+
       <div style={{ fontSize: 46, fontWeight: "bold", margin: "18px 0" }}>
         {formatTime(finishTime ?? timer)}
       </div>
@@ -431,11 +489,17 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
       <h3>當前速度：{speed.toFixed(0)} km/h</h3>
       <h3>平均速度：{avgSpeed.toFixed(1)} km/h</h3>
 
+      {status === "挑戰中斷" && (
+        <div style={{ color: "#ff4d4f", fontWeight: "bold", marginBottom: 12 }}>
+          本次挑戰已中斷，請按「重新開始」後再挑戰。
+        </div>
+      )}
+
       <hr />
 
       <p>
       GPS 精度：{gpsAccuracy.toFixed(0)} m　
-      {gpsAccuracy <= MAX_GPS_ACCURACY_M ? "✅ 可計時" : "⚠️ GPS不穩"}
+      {gpsAccuracy <= 15 ? "✅ 可計時" : "⚠️ GPS不穩"}
       </p>
       <p>起點({pointA})：{startDist.toFixed(1)} m</p>
       <p>終點({pointB})：{endDist.toFixed(1)} m</p>
@@ -497,6 +561,12 @@ export default function RacePage({ vehicleType, track, onBack, onFinish }) {
           <h1>{formatTime(finishTime)}</h1>
           <h3>方向：{direction}</h3>
           <h3>平均速度：{avgSpeed.toFixed(1)} km/h</h3>
+
+      {status === "挑戰中斷" && (
+        <div style={{ color: "#ff4d4f", fontWeight: "bold", marginBottom: 12 }}>
+          本次挑戰已中斷，請按「重新開始」後再挑戰。
+        </div>
+      )}
         </>
       )}
     </div>
