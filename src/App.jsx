@@ -11,6 +11,7 @@ import LeaderboardHome from "./pages/LeaderboardHome";
 import LeaderboardTrack from "./pages/LeaderboardTrack";
 import LeaderboardGroup from "./pages/LeaderboardGroup";
 import LeaderboardResults from "./pages/LeaderboardResults";
+import ResultPage from "./pages/ResultPage";
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -22,9 +23,8 @@ export default function App() {
   const [leaderboardDirection, setLeaderboardDirection] = useState(null);
   const [leaderboardVehicleGroup, setLeaderboardVehicleGroup] = useState(null);
 
-  const [nickname, setNickname] = useState("");
   const [vehicleType, setVehicleType] = useState("速克達");
-  const [vehicleModel, setVehicleModel] = useState("");
+  const [raceResult, setRaceResult] = useState(null);
 
   const path = window.location.pathname;
 
@@ -76,12 +76,8 @@ export default function App() {
         tracks={tracks}
         selectedTrack={selectedTrack}
         setSelectedTrack={setSelectedTrack}
-        nickname={nickname}
-        setNickname={setNickname}
         vehicleType={vehicleType}
         setVehicleType={setVehicleType}
-        vehicleModel={vehicleModel}
-        setVehicleModel={setVehicleModel}
         onBack={() => setPage("home")}
         onStart={() => {
           if (!selectedTrack) {
@@ -89,16 +85,7 @@ export default function App() {
             return;
           }
 
-          if (!nickname) {
-            alert("請輸入暱稱");
-            return;
-          }
-
-          if (!vehicleModel) {
-            alert("請輸入車款");
-            return;
-          }
-
+          setRaceResult(null);
           setPage("race");
         }}
       />
@@ -108,11 +95,27 @@ export default function App() {
   if (page === "race") {
     return (
       <RacePage
-        nickname={nickname}
         vehicleType={vehicleType}
-        vehicleModel={vehicleModel}
         track={selectedTrack}
         onBack={() => setPage("home")}
+        onFinish={(result) => {
+          setRaceResult(result);
+          setPage("result");
+        }}
+      />
+    );
+  }
+
+
+  if (page === "result") {
+    return (
+      <ResultPage
+        result={raceResult}
+        onBackHome={() => setPage("home")}
+        onRaceAgain={() => {
+          setRaceResult(null);
+          setPage("setup");
+        }}
       />
     );
   }

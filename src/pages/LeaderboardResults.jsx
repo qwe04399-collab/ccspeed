@@ -23,6 +23,32 @@ function rankLabel(index) {
   return `#${index + 1}`;
 }
 
+function buildPlayerKey(row) {
+  const nickname = (row.nickname || "未命名").trim();
+  const vehicleModel = (row.vehicle_model || "未填寫").trim();
+  const vehicleType = (row.vehicle_type || "").trim();
+
+  return `${nickname}__${vehicleModel}__${vehicleType}`;
+}
+
+function keepBestRunPerPlayer(rows) {
+  const bestMap = new Map();
+
+  rows.forEach((row) => {
+    const key = buildPlayerKey(row);
+    const currentBest = bestMap.get(key);
+
+    if (!currentBest || Number(row.elapsed_ms || 0) < Number(currentBest.elapsed_ms || 0)) {
+      bestMap.set(key, row);
+    }
+  });
+
+  return Array.from(bestMap.values()).sort(
+    (a, b) => Number(a.elapsed_ms || 0) - Number(b.elapsed_ms || 0)
+  );
+}
+
+
 export default function LeaderboardResults({
   track,
   direction,
@@ -72,7 +98,7 @@ export default function LeaderboardResults({
         return;
       }
 
-      setResults(data || []);
+      setResults(keepBestRunPerPlayer(data || []));
       setLoading(false);
     }
 

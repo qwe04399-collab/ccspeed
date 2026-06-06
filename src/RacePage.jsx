@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "./supabase";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   MapContainer,
@@ -28,7 +27,7 @@ L.Icon.Default.mergeOptions({
 // true  = 在家測試，GPS 回傳後自動開始，5 秒後完賽
 // false = 正式路試，穿越起點線開始，穿越終點線完賽
 // =======================
-const TEST_MODE = true;
+const TEST_MODE = false;
 
 // 起點線
 
@@ -120,7 +119,7 @@ function formatTime(ms) {
   )}.${String(centiseconds).padStart(2, "0")}`;
 }
 
-export default function RacePage({ nickname, vehicleType, vehicleModel, track, onBack }) {
+export default function RacePage({ vehicleType, track, onBack, onFinish }) {
   const startLine = useMemo(
     () => [
       [track.start_left_lat, track.start_left_lng],
@@ -178,8 +177,9 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
   const lastTimeRef = useRef(null);
 
   const speedRef = useRef(0);
+  const maxSpeedRef = useRef(0);
   const speedListRef = useRef([]);
-  const savedRef = useRef(false);
+  const finishedRef = useRef(false);
 
   const setRaceStatus = (nextStatus) => {
     statusRef.current = nextStatus;
@@ -201,50 +201,6 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
     return () => clearInterval(interval);
   }, []);
 
-  const saveResult = useCallback(async (finalTime, avg) => {
-    if (savedRef.current) return;
-    savedRef.current = true;
-
-    const { error } = await supabase.from("runs").insert([
-      {
-        nickname,
-        track_id: track.id,
-
-        // 成績快照：避免之後修改 tracks 賽道名稱/起終點名稱時，歷史成績被改名
-        track_name: track.name,
-        start_name: track.start_name,
-        finish_name: track.finish_name,
-
-        direction: directionRef.current,
-        vehicle_type: vehicleType,
-        vehicle_model: vehicleModel,
-        elapsed_ms: finalTime,
-        avg_speed: avg,
-        max_speed: speedRef.current,
-
-        start_time: startTimeRef.current
-          ? new Date(startTimeRef.current).toISOString()
-          : null,
-        end_time: new Date().toISOString(),
-      },
-    ]);
-
-    if (error) {
-      console.error("資料庫寫入失敗", error);
-      alert("資料庫寫入失敗：" + error.message);
-    } else {
-      alert("🏆 成績已儲存到 runs");
-    }
-  }, [
-    nickname,
-    track.id,
-    track.name,
-    track.start_name,
-    track.finish_name,
-    vehicleType,
-    vehicleModel,
-  ]);
-
   function resetRace() {
     setRaceStatus("等待起跑");
     setRaceDirection("偵測中");
@@ -261,7 +217,8 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
     lastTimeRef.current = null;
     speedRef.current = 0;
     speedListRef.current = [];
-    savedRef.current = false;
+    maxSpeedRef.current = 0;
+    finishedRef.current = false;
   }
 
   useEffect(() => {
@@ -310,6 +267,9 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
         }
 
         speedRef.current = finalSpeed;
+        if (finalSpeed > maxSpeedRef.current && finalSpeed < MAX_VALID_SPEED_KMH) {
+          maxSpeedRef.current = finalSpeed;
+        }
         setSpeed(finalSpeed);
 
         setPath((prev) => [...prev, point]);
@@ -392,8 +352,11 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
         const shouldFinishOfficial =
           !TEST_MODE && (shouldFinishForward || shouldFinishReverse);
 
-        if (shouldFinishTest || shouldFinishOfficial) {
+        if ((shouldFinishTest || shouldFinishOfficial) && !finishedRef.current) {
+          finishedRef.current = true;
+
           const finalTime = Date.now() - startTimeRef.current;
+          const endTime = new Date().toISOString();
 
           const avg =
             speedListRef.current.length > 0
@@ -405,7 +368,23 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
           setAvgSpeed(avg);
           setRaceStatus("完賽");
 
-          await saveResult(finalTime, avg);
+          if (watchRef.current) {
+            navigator.geolocation.clearWatch(watchRef.current);
+            watchRef.current = null;
+          }
+
+          onFinish({
+            track,
+            vehicleType,
+            direction: directionRef.current,
+            elapsedMs: finalTime,
+            avgSpeed: avg,
+            maxSpeed: maxSpeedRef.current,
+            startTime: startTimeRef.current
+              ? new Date(startTimeRef.current).toISOString()
+              : null,
+            endTime,
+          });
         }
 
         lastPointRef.current = point;
@@ -430,12 +409,10 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
   }, [
     endLine,
     forwardDirection,
-    nickname,
+    onFinish,
     reverseDirection,
-    saveResult,
     startLine,
     track,
-    vehicleModel,
     vehicleType,
   ]);
 
@@ -458,7 +435,7 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
 
       <p>
       GPS 精度：{gpsAccuracy.toFixed(0)} m　
-      {gpsAccuracy <= 15 ? "✅ 可計時" : "⚠️ GPS不穩"}
+      {gpsAccuracy <= MAX_GPS_ACCURACY_M ? "✅ 可計時" : "⚠️ GPS不穩"}
       </p>
       <p>起點({pointA})：{startDist.toFixed(1)} m</p>
       <p>終點({pointB})：{endDist.toFixed(1)} m</p>
