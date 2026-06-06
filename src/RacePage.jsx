@@ -28,7 +28,7 @@ L.Icon.Default.mergeOptions({
 // true  = 在家測試，GPS 回傳後自動開始，5 秒後完賽
 // false = 正式路試，穿越起點線開始，穿越終點線完賽
 // =======================
-const TEST_MODE = true;
+const TEST_MODE = false;
 
 // 起點線
 
@@ -178,7 +178,6 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
   const lastTimeRef = useRef(null);
 
   const speedRef = useRef(0);
-  const maxSpeedRef = useRef(0);
   const speedListRef = useRef([]);
   const savedRef = useRef(false);
 
@@ -210,13 +209,19 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
       {
         nickname,
         track_id: track.id,
-        direction: directionRef.current,
+
+        // 成績快照：避免之後修改 tracks 賽道名稱/起終點名稱時，歷史成績被改名
         track_name: track.name,
+        start_name: track.start_name,
+        finish_name: track.finish_name,
+
+        direction: directionRef.current,
         vehicle_type: vehicleType,
         vehicle_model: vehicleModel,
         elapsed_ms: finalTime,
         avg_speed: avg,
-        max_speed: maxSpeedRef.current,
+        max_speed: speedRef.current,
+
         start_time: startTimeRef.current
           ? new Date(startTimeRef.current).toISOString()
           : null,
@@ -230,7 +235,15 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
     } else {
       alert("🏆 成績已儲存到 runs");
     }
-  }, [nickname, track.id, track.name, vehicleType, vehicleModel]);
+  }, [
+    nickname,
+    track.id,
+    track.name,
+    track.start_name,
+    track.finish_name,
+    vehicleType,
+    vehicleModel,
+  ]);
 
   function resetRace() {
     setRaceStatus("等待起跑");
@@ -247,7 +260,6 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
     lastPointRef.current = null;
     lastTimeRef.current = null;
     speedRef.current = 0;
-    maxSpeedRef.current = 0;
     speedListRef.current = [];
     savedRef.current = false;
   }
@@ -298,9 +310,6 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
         }
 
         speedRef.current = finalSpeed;
-        if (finalSpeed > maxSpeedRef.current && finalSpeed < MAX_VALID_SPEED_KMH) {
-          maxSpeedRef.current = finalSpeed;
-        }
         setSpeed(finalSpeed);
 
         setPath((prev) => [...prev, point]);
