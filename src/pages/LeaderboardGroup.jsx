@@ -12,14 +12,15 @@ export default function LeaderboardGroup({
 
   const startName = track?.start_name?.trim() || "起點";
   const finishName = track?.finish_name?.trim() || "終點";
+  const forwardDirection = `${startName}→${finishName}`;
+  const reverseDirection = `${finishName}→${startName}`;
 
-  // ✅ 如果舊資料還傳到「賽道名稱→終點」，這裡直接修正顯示
   const displayDirection =
-    direction === `${track?.name}→終點`
-      ? `${startName}→${finishName}`
-      : direction === `終點→${track?.name}`
-      ? `${finishName}→${startName}`
-      : direction;
+    direction === forwardDirection
+      ? `${startName} → ${finishName}`
+      : direction === reverseDirection
+      ? `${finishName} → ${startName}`
+      : direction || "未選擇";
 
   return (
     <div style={{ maxWidth: 500, margin: "40px auto", padding: 20 }}>

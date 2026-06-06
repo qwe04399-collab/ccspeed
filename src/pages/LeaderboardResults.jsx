@@ -24,11 +24,11 @@ function rankLabel(index) {
 }
 
 function buildPlayerKey(row) {
-  const nickname = (row.nickname || "未命名").trim();
-  const vehicleModel = (row.vehicle_model || "未填寫").trim();
-  const vehicleType = (row.vehicle_type || "").trim();
+  const identity = String(row.player_id || row.contact || row.nickname || "unknown").trim();
+  const vehicleModel = String(row.vehicle_model || "未填寫").trim();
+  const vehicleType = String(row.vehicle_type || "").trim();
 
-  return `${nickname}__${vehicleModel}__${vehicleType}`;
+  return `${identity}__${vehicleModel}__${vehicleType}`;
 }
 
 function keepBestRunPerPlayer(rows) {

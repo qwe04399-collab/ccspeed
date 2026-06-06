@@ -27,7 +27,7 @@ L.Icon.Default.mergeOptions({
 // true  = 在家測試，GPS 回傳後自動開始，5 秒後完賽
 // false = 正式路試，穿越起點線開始，穿越終點線完賽
 // =======================
-const TEST_MODE = true;
+const TEST_MODE = false;
 
 // 起點線
 

@@ -4,14 +4,11 @@ export default function LeaderboardTrack({
   onSelectDirection,
 }) {
   const trackName = track?.name || "未命名賽道";
+  const startName = track?.start_name?.trim() || "起點";
+  const finishName = track?.finish_name?.trim() || "終點";
 
-  // ✅ 方向名稱一定使用資料庫的起點名稱 / 終點名稱
-  // 不再用 track.name 拆字串，避免出現：上班買早餐 → 終點
-  const pointA = track?.start_name?.trim() || "起點";
-  const pointB = track?.finish_name?.trim() || "終點";
-
-  const forwardDirection = `${pointA}→${pointB}`;
-  const reverseDirection = `${pointB}→${pointA}`;
+  const forwardDirection = `${startName}→${finishName}`;
+  const reverseDirection = `${finishName}→${startName}`;
 
   return (
     <div
@@ -43,7 +40,7 @@ export default function LeaderboardTrack({
           fontSize: 24,
         }}
       >
-        {pointA} → {pointB}
+        {startName} → {finishName}
       </button>
 
       <button
@@ -54,7 +51,7 @@ export default function LeaderboardTrack({
           fontSize: 24,
         }}
       >
-        {pointB} → {pointA}
+        {finishName} → {startName}
       </button>
     </div>
   );

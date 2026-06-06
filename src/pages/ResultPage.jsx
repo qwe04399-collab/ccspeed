@@ -18,7 +18,6 @@ function normalizeText(value) {
 }
 
 function normalizeContact(value) {
-  // Email 統一轉小寫，手機號碼不受影響，避免同一個信箱大小寫不同被當成不同玩家
   return normalizeText(value).toLowerCase();
 }
 
