@@ -229,35 +229,49 @@ export default function RacePage({ nickname, vehicleType, vehicleModel, track, o
     if (savedRef.current) return;
     savedRef.current = true;
 
-    // 測試模式也要能寫入資料庫：所有 runs 必填欄位都補上預設值，避免 null 寫入失敗
-    const finalNickname = nickname?.trim() || "5秒測試玩家";
-    const finalVehicleType = vehicleType?.trim() || "機車";
-    const finalVehicleModel = vehicleModel?.trim() || "5秒測試車款";
-    const finalDirection = directionRef.current || "測試模式";
+    const nowIso = new Date().toISOString();
+
+    // 測試模式也要補齊 runs 表的必填欄位，避免 null 寫入失敗
+    const safeNickname =
+      nickname && nickname.trim() !== "" ? nickname.trim() : "5秒測試玩家";
+
+    const safeVehicleType =
+      vehicleType && vehicleType.trim() !== "" ? vehicleType.trim() : "機車";
+
+    const safeVehicleModel =
+      vehicleModel && vehicleModel.trim() !== ""
+        ? vehicleModel.trim()
+        : "5秒測試車款";
+
+    const safeDirection =
+      directionRef.current && directionRef.current !== "偵測中"
+        ? directionRef.current
+        : "測試模式";
 
     const { error } = await supabase.from("runs").insert([
       {
-        nickname: finalNickname,
-        track_id: track?.id,
-        direction: finalDirection,
-        track_name: track?.name || "測試賽道",
-        vehicle_type: finalVehicleType,
-        vehicle_model: finalVehicleModel,
-        elapsed_ms: finalTime,
-        avg_speed: Number.isFinite(avg) ? avg : 0,
-        max_speed: Number.isFinite(speedRef.current) ? speedRef.current : 0,
-        finish_time: new Date().toISOString(),
+        nickname: safeNickname,
+        track_id: track.id,
+        direction: safeDirection,
+        vehicle_type: safeVehicleType,
+        vehicle_model: safeVehicleModel,
+        elapsed_ms: finalTime || 0,
+        avg_speed: avg || 0,
+        start_time: startTimeRef.current
+          ? new Date(startTimeRef.current).toISOString()
+          : nowIso,
+        end_time: nowIso,
       },
     ]);
 
     if (error) {
       console.error("資料庫寫入失敗", error);
-      alert("資料庫寫入失敗：" + error.message);
       savedRef.current = false;
+      alert("資料庫寫入失敗：" + error.message);
     } else {
-      alert(TEST_MODE ? "✅ 5秒測試成績已儲存到 runs" : "🏆 成績已儲存到 runs");
+      alert("🏆 成績已儲存到 runs");
     }
-  }, [nickname, track?.id, track?.name, vehicleType, vehicleModel]);
+  }, [nickname, track.id, vehicleType, vehicleModel]);
 
   function resetRace() {
     setRaceStatus("等待起跑");
