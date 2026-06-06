@@ -63,6 +63,30 @@ export default function RaceSetupPage({
       <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
         暱稱、Mail / 手機、車款會在完成計時後再填，先開始挑戰即可。
       </p>
+      
+      <div
+  style={{
+    background: "#1b263b",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+    textAlign: "center",
+    color: "#fff",
+    lineHeight: 1.6,
+  }}
+>
+  <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+    📱 挑戰注意事項
+  </div>
+
+  <div>
+    挑戰期間請保持 CCSPEED 畫面開啟
+    <br />
+    請勿鎖定螢幕、切換 App 或離開瀏覽器
+    <br />
+    否則本次成績將會中斷且不會儲存
+  </div>
+</div>
 
       <button
         onClick={onStart}
